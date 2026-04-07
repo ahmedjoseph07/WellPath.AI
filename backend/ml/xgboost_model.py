@@ -22,20 +22,30 @@ LABEL_MAP = {1: "productive", 2: "marginal", 0: "non-productive"}
 def _build_model():
     if _USE_XGBOOST:
         return XGBClassifier(
-            n_estimators=100,
-            max_depth=4,
-            learning_rate=0.1,
+            n_estimators=150,
+            max_depth=5,
+            learning_rate=0.08,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_weight=3,
+            gamma=0.1,
+            reg_alpha=0.1,
+            reg_lambda=1.0,
             eval_metric="mlogloss",
             random_state=42,
             verbosity=0,
+            tree_method="hist",   # histogram-based: fast, memory-efficient
+            device="cpu",         # explicit CPU — avoids GPU/CUDA lookup overhead
+            nthread=1,            # single-thread: resolves libomp/OpenMP issue on macOS
         )
     else:
         # HistGradientBoostingClassifier: same gradient boosting family as XGBoost,
         # ships with scikit-learn (no OpenMP dependency on macOS).
         return HistGradientBoostingClassifier(
-            max_iter=100,
-            max_depth=4,
-            learning_rate=0.1,
+            max_iter=150,
+            max_depth=5,
+            learning_rate=0.08,
+            min_samples_leaf=3,
             random_state=42,
         )
 

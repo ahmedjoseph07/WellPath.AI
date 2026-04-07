@@ -70,6 +70,12 @@ const useWellStore = create(
         error: null,
       })),
 
+      // Jump to any step that has already been reached (no forward jumps without data)
+      goToStep: (n) => set((s) => {
+        if (n >= s.activeStep || n < 1) return {}
+        return { activeStep: n, error: null }
+      }),
+
       // ── History actions ───────────────────────────────────────────────────
       loadFromHistory: (entry) => set({
         wellLog: entry.wellLog,

@@ -16,28 +16,38 @@ const STEPS = [
 ]
 
 function StepIndicator() {
-  const { activeStep } = useWellStore()
+  const { activeStep, goToStep } = useWellStore()
 
   return (
     <div className="bg-geo-panel border-b border-geo-border px-6 py-3 flex-shrink-0">
       <div className="flex items-center gap-2">
         {STEPS.map((step, idx) => {
-          const state =
-            step.id === activeStep ? 'step-active'
-            : step.id < activeStep ? 'step-done'
-            : 'step-pending'
+          const isDone    = step.id < activeStep
+          const isActive  = step.id === activeStep
+          const isPending = step.id > activeStep
+          const state     = isActive ? 'step-active' : isDone ? 'step-done' : 'step-pending'
+
           return (
             <React.Fragment key={step.id}>
-              <div className={`px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all ${state}`}>
-                {state === 'step-done' && <span className="mr-1.5 text-geo-green">✓</span>}
+              <button
+                onClick={() => isDone && goToStep(step.id)}
+                disabled={isPending || isActive}
+                title={isDone ? `Go back to ${step.label}` : undefined}
+                className={`
+                  px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all
+                  ${state}
+                  ${isDone ? 'cursor-pointer hover:brightness-125' : 'cursor-default'}
+                `}
+              >
+                {isDone && <span className="mr-1.5 text-geo-green">✓</span>}
                 <span className={
-                  state === 'step-active' ? 'text-geo-accent'
-                  : state === 'step-done'  ? 'text-geo-green'
+                  isActive  ? 'text-geo-accent'
+                  : isDone  ? 'text-geo-green'
                   : 'text-slate-500'
                 }>
                   {step.label}
                 </span>
-              </div>
+              </button>
               {idx < STEPS.length - 1 && (
                 <div className={`flex-1 h-px max-w-12 transition-colors ${
                   step.id < activeStep ? 'bg-geo-green/50' : 'bg-geo-border'
