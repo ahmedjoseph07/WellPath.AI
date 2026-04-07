@@ -1,12 +1,10 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import useWellStore from '../../store/wellStore'
 import { getSyntheticData, runPrediction, runOptimization } from '../../api/wellpath'
 import UploadZone from '../upload/UploadZone'
 
 function Spinner() {
-  return (
-    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" />
-  )
+  return <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" />
 }
 
 function StatRow({ label, value }) {
@@ -18,11 +16,25 @@ function StatRow({ label, value }) {
   )
 }
 
+function BackButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path d="M19 12H5M12 5l-7 7 7 7" />
+      </svg>
+      Back
+    </button>
+  )
+}
+
 export default function Sidebar() {
   const {
     activeStep, wellLog, predictions, trajectory,
     setWellLog, setPredictions, setTrajectory,
-    loading, setLoading, setError, reset,
+    loading, setLoading, setError, reset, goBack,
   } = useWellStore()
 
   const [gaConfig, setGaConfig] = useState({ waypoints: 8, generations: 100 })
@@ -83,7 +95,7 @@ export default function Sidebar() {
     <aside className="w-80 flex-shrink-0 bg-geo-panel border-r border-geo-border flex flex-col overflow-y-auto">
       <div className="p-4 flex-1 flex flex-col gap-4">
 
-        {/* Step 1 controls */}
+        {/* ── Step 1 ── */}
         {activeStep === 1 && (
           <div className="flex flex-col gap-4">
             <div>
@@ -112,22 +124,29 @@ export default function Sidebar() {
           </div>
         )}
 
-        {/* Step 2 controls */}
+        {/* ── Step 2 ── */}
         {activeStep === 2 && wellLog && (
           <div className="flex flex-col gap-4">
-            <div>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
                 Well Log Summary
               </h3>
-              <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
-                <StatRow label="Depth Range" value={depthRange} />
-                <StatRow label="Samples" value={wellLog.depths.length.toLocaleString()} />
-                <StatRow label="GR Range" value={`${Math.min(...wellLog.GR).toFixed(1)} – ${Math.max(...wellLog.GR).toFixed(1)} API`} />
-                <StatRow label="Resistivity" value={`${Math.min(...wellLog.Resistivity).toFixed(1)} – ${Math.max(...wellLog.Resistivity).toFixed(1)} Ω·m`} />
-              </div>
+              <BackButton onClick={goBack} />
             </div>
-            <div className="mt-2">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+            <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
+              <StatRow label="Depth Range" value={depthRange} />
+              <StatRow label="Samples" value={wellLog.depths.length.toLocaleString()} />
+              <StatRow label="GR Range" value={`${Math.min(...wellLog.GR).toFixed(1)} – ${Math.max(...wellLog.GR).toFixed(1)} API`} />
+              <StatRow label="Resistivity" value={`${Math.min(...wellLog.Resistivity).toFixed(1)} – ${Math.max(...wellLog.Resistivity).toFixed(1)} Ω·m`} />
+              {wellLog.Density && (
+                <StatRow label="Density" value={`${Math.min(...wellLog.Density).toFixed(2)} – ${Math.max(...wellLog.Density).toFixed(2)} g/cc`} />
+              )}
+              {wellLog.Sonic && (
+                <StatRow label="Sonic" value={`${Math.min(...wellLog.Sonic).toFixed(1)} – ${Math.max(...wellLog.Sonic).toFixed(1)} μs/ft`} />
+              )}
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
                 XGBoost Model
               </h3>
               <p className="text-xs text-slate-500 mb-3">
@@ -150,25 +169,30 @@ export default function Sidebar() {
           </div>
         )}
 
-        {/* Step 3 controls */}
+        {/* ── Step 3 ── */}
         {activeStep === 3 && predictions && (
           <div className="flex flex-col gap-4">
-            <div>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
                 Prediction Summary
               </h3>
-              <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
-                <StatRow label="Total Intervals" value={predictions.depths.length.toLocaleString()} />
-                <StatRow label="Productive" value={`${productiveCount} (${productivePct}%)`} />
-                <StatRow
-                  label="Marginal"
-                  value={predictions.zone_label.filter((z) => z === 'marginal').length}
-                />
-                <StatRow
-                  label="Non-Productive"
-                  value={predictions.zone_label.filter((z) => z === 'non-productive').length}
-                />
-              </div>
+              <BackButton onClick={goBack} />
+            </div>
+
+            <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
+              <StatRow label="Total Intervals" value={predictions.depths.length.toLocaleString()} />
+              <StatRow label="Productive" value={`${productiveCount} (${productivePct}%)`} />
+              <StatRow
+                label="Marginal"
+                value={predictions.zone_label.filter((z) => z === 'marginal').length}
+              />
+              <StatRow
+                label="Non-Productive"
+                value={predictions.zone_label.filter((z) => z === 'non-productive').length}
+              />
+              {predictions.model_backend && (
+                <StatRow label="Model" value={predictions.model_backend} />
+              )}
             </div>
 
             <div>
@@ -182,10 +206,7 @@ export default function Sidebar() {
                     <span className="text-xs font-bold text-geo-accent">{gaConfig.waypoints}</span>
                   </div>
                   <input
-                    type="range"
-                    min={4}
-                    max={12}
-                    value={gaConfig.waypoints}
+                    type="range" min={4} max={12} value={gaConfig.waypoints}
                     onChange={(e) => setGaConfig((c) => ({ ...c, waypoints: Number(e.target.value) }))}
                     className="w-full h-1.5 rounded-full accent-geo-accent cursor-pointer"
                   />
@@ -200,11 +221,7 @@ export default function Sidebar() {
                     <span className="text-xs font-bold text-geo-accent">{gaConfig.generations}</span>
                   </div>
                   <input
-                    type="range"
-                    min={50}
-                    max={200}
-                    step={10}
-                    value={gaConfig.generations}
+                    type="range" min={50} max={200} step={10} value={gaConfig.generations}
                     onChange={(e) => setGaConfig((c) => ({ ...c, generations: Number(e.target.value) }))}
                     className="w-full h-1.5 rounded-full accent-geo-accent cursor-pointer"
                   />
@@ -233,46 +250,48 @@ export default function Sidebar() {
           </div>
         )}
 
-        {/* Step 4 results */}
+        {/* ── Step 4 ── */}
         {activeStep === 4 && trajectory && (
           <div className="flex flex-col gap-4">
-            <div>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
                 Optimization Results
               </h3>
-              <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
-                <StatRow
-                  label="Fitness Score"
-                  value={trajectory.fitness_score != null ? trajectory.fitness_score.toFixed(4) : 'N/A'}
-                />
-                <StatRow
-                  label="Productive Exposure"
-                  value={trajectory.productive_zone_exposure != null
-                    ? `${(trajectory.productive_zone_exposure * 100).toFixed(1)}%`
-                    : 'N/A'}
-                />
-                <StatRow
-                  label="Max DLS"
-                  value={trajectory.max_dogleg_severity != null
-                    ? `${trajectory.max_dogleg_severity.toFixed(2)} °/30m`
-                    : 'N/A'}
-                />
-                <StatRow
-                  label="Trajectory Points"
-                  value={trajectory.trajectory ? trajectory.trajectory.length : 'N/A'}
-                />
-              </div>
+              <BackButton onClick={goBack} />
             </div>
 
-            {trajectory.generation_history && trajectory.generation_history.length > 0 && (
+            <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
+              <StatRow
+                label="Fitness Score"
+                value={trajectory.fitness_score != null ? trajectory.fitness_score.toFixed(4) : 'N/A'}
+              />
+              <StatRow
+                label="Productive Exposure"
+                value={trajectory.productive_zone_exposure != null
+                  ? `${(trajectory.productive_zone_exposure * 100).toFixed(1)}%`
+                  : 'N/A'}
+              />
+              <StatRow
+                label="Max DLS"
+                value={trajectory.max_dogleg_severity != null
+                  ? `${trajectory.max_dogleg_severity.toFixed(2)} °/30m`
+                  : 'N/A'}
+              />
+              <StatRow
+                label="Trajectory Points"
+                value={trajectory.trajectory ? trajectory.trajectory.length : 'N/A'}
+              />
+            </div>
+
+            {trajectory.generation_history?.length > 0 && (
               <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
                 <p className="text-xs text-slate-400 mb-1">GA Convergence</p>
                 <p className="text-xs text-slate-500">
-                  Final fitness achieved in {trajectory.generation_history.length} generations.
+                  Converged in {trajectory.generation_history.length} generations
                 </p>
                 <div className="mt-2 h-1.5 rounded-full bg-geo-border overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-geo-accent"
+                    className="h-full rounded-full bg-geo-accent transition-all"
                     style={{ width: `${Math.min(100, (trajectory.fitness_score || 0) * 100)}%` }}
                   />
                 </div>
@@ -287,7 +306,7 @@ export default function Sidebar() {
                 <path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8" />
                 <path d="M3 3v5h5" />
               </svg>
-              Start Over
+              Start New Run
             </button>
           </div>
         )}
