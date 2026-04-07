@@ -1,12 +1,12 @@
-import { Suspense, useState, useMemo } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Suspense, useState, useMemo, useRef, useEffect } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars, Grid, Html } from '@react-three/drei'
 import FormationLayers from './FormationLayers'
 import WellTrajectory from './WellTrajectory'
 import VerticalWell from './VerticalWell'
 import useWellStore from '../../store/wellStore'
 
-// ── Lighting ─────────────────────────────────────────────────────────────────
+// ── Lighting ──────────────────────────────────────────────────────────────────
 function SceneLights() {
   return (
     <>
@@ -18,73 +18,83 @@ function SceneLights() {
   )
 }
 
+// ── Camera controller: reacts to preset changes ────────────────────────────────
+function CameraController({ preset, maxDepth, orbitRef }) {
+  const { camera } = useThree()
+
+  useEffect(() => {
+    const halfDepth = maxDepth * 0.5
+    const tgt = [0, -halfDepth, 0]
+
+    const positions = {
+      perspective: [520,  -(maxDepth * 0.25),  700],
+      top:         [0,     100,                  10],
+      front:       [0,    -halfDepth,            maxDepth * 0.95],
+      side:        [maxDepth * 0.95, -halfDepth,  0],
+    }
+
+    const pos = positions[preset] ?? positions.perspective
+    camera.position.set(...pos)
+
+    if (orbitRef.current) {
+      orbitRef.current.target.set(...tgt)
+      orbitRef.current.update()
+    }
+  }, [preset, maxDepth, camera, orbitRef])
+
+  return null
+}
+
 // ── Surface drilling rig ──────────────────────────────────────────────────────
 function SurfaceRig() {
   return (
     <group position={[0, 8, 0]}>
-      {/* Platform deck */}
       <mesh>
         <boxGeometry args={[60, 6, 60]} />
         <meshPhongMaterial color="#1e293b" shininess={25} />
       </mesh>
-      {/* Platform edge trim */}
       <mesh>
         <boxGeometry args={[62, 1, 62]} />
         <meshBasicMaterial color="#334155" />
       </mesh>
-      {/* 4 platform legs */}
       {[[-22, 0, -22], [22, 0, -22], [-22, 0, 22], [22, 0, 22]].map(([x, , z], i) => (
         <mesh key={i} position={[x, -16, z]}>
           <cylinderGeometry args={[2, 2.5, 26, 8]} />
           <meshPhongMaterial color="#0f172a" />
         </mesh>
       ))}
-      {/* Derrick tower */}
       <mesh position={[0, 46, 0]}>
         <cylinderGeometry args={[1, 4, 80, 8]} />
         <meshPhongMaterial color="#334155" shininess={40} />
       </mesh>
-      {/* Cross bracing (decorative boxes) */}
       {[20, 40, 60].map((h) => (
         <mesh key={h} position={[0, h, 0]}>
           <boxGeometry args={[14, 1, 2]} />
           <meshBasicMaterial color="#374151" />
         </mesh>
       ))}
-      {/* Crown block */}
       <mesh position={[0, 89, 0]}>
         <boxGeometry args={[14, 8, 14]} />
         <meshPhongMaterial color="#475569" shininess={60} />
       </mesh>
-      {/* Mast above crown */}
       <mesh position={[0, 100, 0]}>
         <cylinderGeometry args={[0.6, 0.6, 18, 6]} />
         <meshPhongMaterial color="#64748b" />
       </mesh>
-      {/* Wellhead flange at ground */}
       <mesh position={[0, -7, 0]}>
         <cylinderGeometry args={[6, 7, 10, 12]} />
         <meshPhongMaterial color="#475569" shininess={70} />
       </mesh>
-      {/* BOP stack */}
       <mesh position={[0, -14, 0]}>
         <boxGeometry args={[12, 10, 12]} />
         <meshPhongMaterial color="#1e293b" shininess={30} />
       </mesh>
-      {/* Rig label */}
       <Html position={[38, 30, 0]} distanceFactor={400} style={{ pointerEvents: 'none' }}>
         <div style={{
-          background: 'rgba(17,24,39,0.85)',
-          border: '1px solid #06b6d440',
-          borderRadius: 5,
-          padding: '3px 7px',
-          whiteSpace: 'nowrap',
-          color: '#06b6d4',
-          fontSize: 10,
-          fontWeight: 600,
-        }}>
-          ⛽ Surface Location
-        </div>
+          background: 'rgba(17,24,39,0.85)', border: '1px solid #06b6d440',
+          borderRadius: 5, padding: '3px 7px', whiteSpace: 'nowrap',
+          color: '#06b6d4', fontSize: 10, fontWeight: 600,
+        }}>⛽ Surface Location</div>
       </Html>
     </group>
   )
@@ -101,7 +111,6 @@ function DepthAxis({ maxDepth }) {
 
   return (
     <group>
-      {/* Vertical axis line */}
       <mesh position={[240, -(maxDepth / 2), 0]}>
         <cylinderGeometry args={[0.4, 0.4, maxDepth, 4]} />
         <meshBasicMaterial color="#374151" />
@@ -119,7 +128,6 @@ function DepthAxis({ maxDepth }) {
           </Html>
         </group>
       ))}
-      {/* "TVD" label at top */}
       <Html position={[240, 30, 0]} distanceFactor={350} style={{ pointerEvents: 'none' }}>
         <span style={{ color: '#374151', fontSize: 9, whiteSpace: 'nowrap', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1 }}>
           TVD ↓
@@ -129,25 +137,21 @@ function DepthAxis({ maxDepth }) {
   )
 }
 
-// ── North compass on the surface grid ─────────────────────────────────────────
+// ── Compass rose ───────────────────────────────────────────────────────────────
 function CompassRose() {
   return (
     <group position={[0, 2, 0]}>
-      {/* N line */}
       <mesh position={[0, 0, -160]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.5, 0.5, 300, 4]} />
         <meshBasicMaterial color="#374151" />
       </mesh>
-      {/* E line */}
       <mesh position={[160, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.5, 0.5, 300, 4]} />
         <meshBasicMaterial color="#374151" />
       </mesh>
-      {/* N label */}
       <Html position={[0, 0, -320]} distanceFactor={400} style={{ pointerEvents: 'none' }}>
         <span style={{ color: '#f59e0b', fontSize: 12, fontWeight: 700 }}>N</span>
       </Html>
-      {/* E label */}
       <Html position={[330, 0, 0]} distanceFactor={400} style={{ pointerEvents: 'none' }}>
         <span style={{ color: '#64748b', fontSize: 11, fontWeight: 600 }}>E</span>
       </Html>
@@ -155,26 +159,23 @@ function CompassRose() {
   )
 }
 
-// ── Overlay: legend ────────────────────────────────────────────────────────────
+// ── Overlay: Legend ────────────────────────────────────────────────────────────
 function Legend() {
   const items = [
     { color: '#10b981', label: 'Productive Zone' },
     { color: '#f59e0b', label: 'Marginal Zone' },
     { color: '#ef4444', label: 'Non-Productive' },
     { color: '#06b6d4', label: 'Optimized Path' },
-    { color: '#f59e0b', label: 'Kick-off Point', shape: 'circle' },
+    { color: '#f59e0b', label: 'Kick-off Point', circle: true },
     { color: '#94a3b8', label: 'Vertical Reference' },
   ]
   return (
     <div className="absolute bottom-4 left-4 bg-geo-panel/92 border border-geo-border rounded-xl p-3 backdrop-blur-sm">
       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Legend</p>
       <div className="flex flex-col gap-1.5">
-        {items.map(({ color, label, shape }) => (
+        {items.map(({ color, label, circle }) => (
           <div key={label} className="flex items-center gap-2">
-            <div
-              className={`w-3 h-3 flex-shrink-0 ${shape === 'circle' ? 'rounded-full' : 'rounded-sm'}`}
-              style={{ background: color }}
-            />
+            <div className={`w-3 h-3 flex-shrink-0 ${circle ? 'rounded-full' : 'rounded-sm'}`} style={{ background: color }} />
             <span className="text-xs text-slate-300">{label}</span>
           </div>
         ))}
@@ -183,55 +184,32 @@ function Legend() {
   )
 }
 
-// ── Overlay: results panel ─────────────────────────────────────────────────────
+// ── Overlay: Results stats ─────────────────────────────────────────────────────
 function SceneStats({ trajectory }) {
   if (!trajectory) return null
   const pts = trajectory.trajectory ?? []
-  const maxInc = pts.length ? Math.max(...pts.map((p) => p.inclination ?? 0)) : null
+  const maxInc   = pts.length ? Math.max(...pts.map((p) => p.inclination ?? 0)) : null
   const departure = pts.length
     ? Math.sqrt((pts[pts.length - 1].x ?? 0) ** 2 + (pts[pts.length - 1].y ?? 0) ** 2)
     : null
 
   return (
     <div className="absolute top-4 right-4 bg-geo-panel/92 border border-geo-border rounded-xl p-3 backdrop-blur-sm min-w-44">
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Optimization Results</p>
+      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Results</p>
       <div className="flex flex-col gap-1.5">
-        <div className="flex justify-between gap-4">
-          <span className="text-xs text-slate-500">Fitness Score</span>
-          <span className="text-xs font-bold text-geo-accent">{trajectory.fitness_score?.toFixed(4) ?? 'N/A'}</span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-xs text-slate-500">Zone Exposure</span>
-          <span className="text-xs font-bold text-geo-green">
-            {trajectory.productive_zone_exposure != null
-              ? `${(trajectory.productive_zone_exposure * 100).toFixed(1)}%` : 'N/A'}
-          </span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span className="text-xs text-slate-500">Max DLS</span>
-          <span className="text-xs font-bold text-geo-yellow">
-            {trajectory.max_dogleg_severity != null
-              ? `${trajectory.max_dogleg_severity.toFixed(2)} °/30m` : 'N/A'}
-          </span>
-        </div>
-        {maxInc != null && (
-          <div className="flex justify-between gap-4">
-            <span className="text-xs text-slate-500">Max Inclination</span>
-            <span className="text-xs font-bold text-slate-200">{maxInc.toFixed(1)}°</span>
+        {[
+          ['Fitness Score',     trajectory.fitness_score?.toFixed(4) ?? 'N/A',                          'text-geo-accent'],
+          ['Zone Exposure',     trajectory.productive_zone_exposure != null ? `${(trajectory.productive_zone_exposure * 100).toFixed(1)}%` : 'N/A', 'text-geo-green'],
+          ['Max DLS',           trajectory.max_dogleg_severity != null ? `${trajectory.max_dogleg_severity.toFixed(2)} °/30m` : 'N/A',             'text-geo-yellow'],
+          ['Max Inclination',   maxInc != null ? `${maxInc.toFixed(1)}°` : 'N/A',                       'text-slate-200'],
+          ['Lateral Departure', departure != null ? `${departure.toFixed(0)} m` : 'N/A',                'text-slate-200'],
+          ['Survey Stations',   pts.length || 'N/A',                                                    'text-slate-200'],
+        ].map(([label, value, cls]) => (
+          <div key={label} className="flex justify-between gap-4">
+            <span className="text-xs text-slate-500">{label}</span>
+            <span className={`text-xs font-bold ${cls}`}>{value}</span>
           </div>
-        )}
-        {departure != null && (
-          <div className="flex justify-between gap-4">
-            <span className="text-xs text-slate-500">Lateral Departure</span>
-            <span className="text-xs font-bold text-slate-200">{departure.toFixed(0)} m</span>
-          </div>
-        )}
-        {pts.length > 0 && (
-          <div className="flex justify-between gap-4">
-            <span className="text-xs text-slate-500">Survey Stations</span>
-            <span className="text-xs font-bold text-slate-200">{pts.length}</span>
-          </div>
-        )}
+        ))}
       </div>
     </div>
   )
@@ -241,18 +219,18 @@ function SceneStats({ trajectory }) {
 function ConvergenceChart({ history }) {
   if (!history?.length) return null
   const W = 180, H = 56
-  const min = Math.min(...history)
-  const max = Math.max(...history)
+  const min   = Math.min(...history)
+  const max   = Math.max(...history)
   const range = max - min || 1
 
-  const polyline = history.map((v, i) => {
+  const pts = history.map((v, i) => {
     const x = (i / Math.max(history.length - 1, 1)) * W
     const y = H - ((v - min) / range) * (H - 4) - 2
     return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
-
-  const lastY = H - ((history[history.length - 1] - min) / range) * (H - 4) - 2
-  const improvement = max > min
+  })
+  const polyline = pts.join(' ')
+  const lastY    = H - ((history[history.length - 1] - min) / range) * (H - 4) - 2
+  const gain     = max > history[0]
     ? `+${(((max - history[0]) / (Math.abs(history[0]) || 1)) * 100).toFixed(1)}%`
     : 'flat'
 
@@ -260,25 +238,19 @@ function ConvergenceChart({ history }) {
     <div className="absolute bottom-4 right-4 bg-geo-panel/92 border border-geo-border rounded-xl p-3 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">GA Convergence</p>
-        <span className="text-xs font-bold text-geo-green">{improvement}</span>
+        <span className="text-xs font-bold text-geo-green">{gain}</span>
       </div>
       <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
-        {/* Fill area under curve */}
         <defs>
           <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.25" />
             <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.02" />
           </linearGradient>
         </defs>
-        <polygon
-          points={`0,${H} ${polyline} ${W},${H}`}
-          fill="url(#sparkGrad)"
-        />
+        <polygon points={`0,${H} ${polyline} ${W},${H}`} fill="url(#sparkGrad)" />
         <polyline points={polyline} fill="none" stroke="#06b6d4" strokeWidth="1.5" strokeLinejoin="round" />
-        {/* Start dot */}
-        <circle cx="0" cy={H - ((history[0] - min) / range) * (H - 4) - 2} r="2.5" fill="#94a3b8" />
-        {/* End dot */}
-        <circle cx={W} cy={lastY} r="3.5" fill="#10b981" />
+        <circle cx="0"  cy={H - ((history[0] - min) / range) * (H - 4) - 2} r="2.5" fill="#94a3b8" />
+        <circle cx={W}  cy={lastY} r="3.5" fill="#10b981" />
       </svg>
       <div className="flex justify-between mt-1.5">
         <span className="text-xs text-slate-600">Gen 1</span>
@@ -289,26 +261,93 @@ function ConvergenceChart({ history }) {
   )
 }
 
-// ── Overlay: controls hint ─────────────────────────────────────────────────────
-function Controls3D({ showLabels, onToggleLabels }) {
+// ── Overlay: Camera controls panel ────────────────────────────────────────────
+const PRESETS = [
+  { key: 'perspective', label: 'Persp', title: 'Perspective view (default)' },
+  { key: 'front',       label: 'Front', title: 'Front view (Y-Z plane)' },
+  { key: 'side',        label: 'Side',  title: 'Side view (X-Z plane)' },
+  { key: 'top',         label: 'Top',   title: 'Top-down plan view' },
+]
+
+function ControlsPanel({ preset, onPreset, autoRotate, onAutoRotate, showLabels, onToggleLabels }) {
+  function handleReset() {
+    onPreset('perspective')     // triggers CameraController via state
+  }
+
   return (
-    <div className="absolute top-4 left-4 bg-geo-panel/92 border border-geo-border rounded-xl p-2.5 backdrop-blur-sm">
-      <p className="text-xs text-slate-400 font-semibold mb-1.5 uppercase tracking-wider">3D Controls</p>
-      <div className="flex flex-col gap-1 text-xs text-slate-500 mb-2.5">
-        <span>Left drag: Rotate</span>
-        <span>Right drag: Pan</span>
-        <span>Scroll: Zoom</span>
+    <div className="absolute top-4 left-4 bg-geo-panel/92 border border-geo-border rounded-xl p-3 backdrop-blur-sm select-none" style={{ minWidth: 168 }}>
+
+      {/* Mouse hints */}
+      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Controls</p>
+      <div className="flex flex-col gap-0.5 text-xs text-slate-500 mb-3">
+        <span>🖱 Left drag — Rotate</span>
+        <span>🖱 Right drag — Pan</span>
+        <span>🖱 Scroll — Zoom</span>
       </div>
-      <button
-        onClick={onToggleLabels}
-        className={`w-full text-xs px-2 py-1 rounded border transition-colors ${
-          showLabels
-            ? 'bg-geo-accent/20 border-geo-accent/40 text-geo-accent'
-            : 'bg-geo-dark border-geo-border text-slate-500 hover:text-slate-300'
-        }`}
-      >
-        {showLabels ? '✓' : ''} Zone Labels
-      </button>
+
+      {/* View presets */}
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Camera View</p>
+      <div className="grid grid-cols-2 gap-1 mb-3">
+        {PRESETS.map(({ key, label, title }) => (
+          <button
+            key={key}
+            title={title}
+            onClick={() => onPreset(key)}
+            className={`
+              px-2 py-1.5 rounded text-xs font-semibold border transition-all
+              ${preset === key
+                ? 'bg-geo-accent/20 border-geo-accent/50 text-geo-accent'
+                : 'bg-geo-dark border-geo-border text-slate-400 hover:text-slate-200 hover:border-slate-500'}
+            `}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex flex-col gap-1.5">
+        <button
+          onClick={handleReset}
+          className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border border-geo-border bg-geo-dark text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-all"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8" /><path d="M3 3v5h5" />
+          </svg>
+          Reset View
+        </button>
+
+        <button
+          onClick={onAutoRotate}
+          className={`
+            w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border transition-all
+            ${autoRotate
+              ? 'bg-geo-green/15 border-geo-green/40 text-geo-green'
+              : 'bg-geo-dark border-geo-border text-slate-400 hover:text-slate-200'}
+          `}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2" />
+          </svg>
+          {autoRotate ? 'Stop Rotate' : 'Auto-Rotate'}
+        </button>
+
+        <button
+          onClick={onToggleLabels}
+          className={`
+            w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border transition-all
+            ${showLabels
+              ? 'bg-geo-accent/15 border-geo-accent/40 text-geo-accent'
+              : 'bg-geo-dark border-geo-border text-slate-400 hover:text-slate-200'}
+          `}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+            <circle cx="7" cy="7" r="1.5" fill="currentColor" />
+          </svg>
+          {showLabels ? 'Hide Labels' : 'Show Labels'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -316,16 +355,22 @@ function Controls3D({ showLabels, onToggleLabels }) {
 // ── Main Scene ─────────────────────────────────────────────────────────────────
 export default function Scene3D() {
   const { trajectory, wellLog } = useWellStore()
-  const [showLabels, setShowLabels] = useState(true)
+  const [showLabels, setShowLabels]   = useState(true)
+  const [autoRotate, setAutoRotate]   = useState(false)
+  const [cameraPreset, setCameraPreset] = useState('perspective')
+  const orbitRef = useRef()
 
   const maxDepth = useMemo(() => {
     if (trajectory?.trajectory) return Math.max(...trajectory.trajectory.map((p) => p.z ?? p.depth ?? 0))
-    if (wellLog?.depths)         return Math.max(...wellLog.depths)
+    if (wellLog?.depths)        return Math.max(...wellLog.depths)
     return 3000
   }, [trajectory, wellLog])
 
   return (
-    <div className="relative w-full bg-geo-dark rounded-xl border border-geo-border overflow-hidden" style={{ minHeight: 620, height: '100%' }}>
+    <div
+      className="relative w-full bg-geo-dark rounded-xl border border-geo-border overflow-hidden"
+      style={{ minHeight: 620, height: '100%' }}
+    >
       <Suspense fallback={
         <div className="flex items-center justify-center w-full h-full min-h-96">
           <div className="flex flex-col items-center gap-3">
@@ -345,20 +390,13 @@ export default function Scene3D() {
           style={{ background: '#060a14' }}
         >
           <SceneLights />
-
           <Stars radius={6000} depth={60} count={2500} factor={4} saturation={0.1} fade speed={0.15} />
-
           <Grid
             position={[0, 2, 0]}
             args={[900, 900]}
-            cellSize={50}
-            cellThickness={0.25}
-            cellColor="#111827"
-            sectionSize={200}
-            sectionThickness={0.7}
-            sectionColor="#1f2937"
-            fadeDistance={2500}
-            fadeStrength={1.2}
+            cellSize={50}      cellThickness={0.25} cellColor="#111827"
+            sectionSize={200}  sectionThickness={0.7} sectionColor="#1f2937"
+            fadeDistance={2500} fadeStrength={1.2}
           />
 
           <SurfaceRig />
@@ -368,12 +406,19 @@ export default function Scene3D() {
           <DepthAxis maxDepth={maxDepth} />
           {trajectory && <WellTrajectory />}
 
+          {/* Camera controller responds to preset state changes */}
+          <CameraController preset={cameraPreset} maxDepth={maxDepth} orbitRef={orbitRef} />
+
           <OrbitControls
+            ref={orbitRef}
             target={[0, -(maxDepth * 0.35), 0]}
             enableDamping
             dampingFactor={0.07}
+            autoRotate={autoRotate}
+            autoRotateSpeed={0.6}
             minDistance={100}
-            maxDistance={8000}
+            maxDistance={10000}
+            makeDefault
           />
         </Canvas>
       </Suspense>
@@ -381,14 +426,19 @@ export default function Scene3D() {
       {/* HUD overlays */}
       <Legend />
       <SceneStats trajectory={trajectory} />
-      <Controls3D showLabels={showLabels} onToggleLabels={() => setShowLabels((v) => !v)} />
+      <ControlsPanel
+        preset={cameraPreset}
+        onPreset={setCameraPreset}
+        autoRotate={autoRotate}
+        onAutoRotate={() => setAutoRotate((v) => !v)}
+        showLabels={showLabels}
+        onToggleLabels={() => setShowLabels((v) => !v)}
+      />
 
-      {/* GA convergence — only shown after optimization, replaces results in bottom-right */}
       {trajectory?.generation_history?.length > 0 && (
         <ConvergenceChart history={trajectory.generation_history} />
       )}
 
-      {/* Pre-optimization prompt */}
       {!trajectory && (
         <div className="absolute inset-0 flex items-end justify-center pb-16 pointer-events-none">
           <div className="bg-geo-panel/85 border border-geo-border rounded-xl px-6 py-3 backdrop-blur-sm text-center">

@@ -3,17 +3,25 @@ import random
 from typing import Dict, List
 
 
+_FIXED_SEED = 2007007  # deterministic: same well log every call (Joseph Ahmed student ID)
+
+
 def generate_synthetic_well_log() -> Dict[str, List[float]]:
     """
-    Generate realistic synthetic well log data.
+    Generate a deterministic synthetic well log dataset.
+
+    Fixed seed ensures the same formation geometry and log values are returned
+    on every call, so predictions and trajectories are reproducible when using
+    the sample dataset.  Upload a real CSV to get different data.
 
     Creates 200 depth points from 1000m to 2000m (5m spacing) divided into
-    6-8 random formation layers of sandstone, shale, or limestone.
-    Correlated Gaussian noise is added to each log curve.
+    7 fixed formation layers of sandstone, shale, or limestone.
+    Correlated Gaussian noise (fixed) is added to each log curve.
 
     Returns a dict with keys: depths, GR, Resistivity, Density, NeutronPorosity, Sonic.
     """
-    rng = np.random.default_rng(seed=None)
+    rng = np.random.default_rng(seed=_FIXED_SEED)
+    py_rng = random.Random(_FIXED_SEED)   # separate seeded Python RNG
 
     depths = np.linspace(1000.0, 2000.0, 200)
 
@@ -43,11 +51,11 @@ def generate_synthetic_well_log() -> Dict[str, List[float]]:
     }
 
     formation_names = list(formation_templates.keys())
-    n_layers = random.randint(6, 8)
+    n_layers = py_rng.randint(6, 8)
 
     # Create layer boundaries (sorted indices)
     boundary_indices = sorted(
-        random.sample(range(10, 190), n_layers - 1)
+        py_rng.sample(range(10, 190), n_layers - 1)
     )
     layer_starts = [0] + boundary_indices
     layer_ends = boundary_indices + [200]
@@ -60,7 +68,7 @@ def generate_synthetic_well_log() -> Dict[str, List[float]]:
     Sonic = np.zeros(200)
 
     for start, end in zip(layer_starts, layer_ends):
-        formation = random.choice(formation_names)
+        formation = py_rng.choice(formation_names)
         tmpl = formation_templates[formation]
         n = end - start
 
