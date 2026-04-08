@@ -70,10 +70,15 @@ const useWellStore = create(
         error: null,
       })),
 
-      // Jump to any step that has already been reached (no forward jumps without data)
+      // Jump to any completed step (requires data for that step to exist)
       goToStep: (n) => set((s) => {
-        if (n >= s.activeStep || n < 1) return {}
-        return { activeStep: n, error: null }
+        if (n < 1 || n > 4 || n === s.activeStep) return {}
+        // Allow navigation to any step whose prerequisite data exists
+        if (n === 1) return { activeStep: 1, error: null }
+        if (n === 2 && s.wellLog) return { activeStep: 2, error: null }
+        if (n === 3 && s.predictions) return { activeStep: 3, error: null }
+        if (n === 4 && s.trajectory) return { activeStep: 4, error: null }
+        return {}
       }),
 
       // ── History actions ───────────────────────────────────────────────────

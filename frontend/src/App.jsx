@@ -16,7 +16,10 @@ const STEPS = [
 ]
 
 function StepIndicator() {
-  const { activeStep, goToStep } = useWellStore()
+  const { activeStep, goToStep, wellLog, predictions, trajectory } = useWellStore()
+
+  // A step is reachable if its prerequisite data exists
+  const reachable = { 1: true, 2: !!wellLog, 3: !!predictions, 4: !!trajectory }
 
   return (
     <div className="bg-geo-panel border-b border-geo-border px-6 py-3 flex-shrink-0">
@@ -24,19 +27,19 @@ function StepIndicator() {
         {STEPS.map((step, idx) => {
           const isDone    = step.id < activeStep
           const isActive  = step.id === activeStep
-          const isPending = step.id > activeStep
+          const canClick  = reachable[step.id] && !isActive
           const state     = isActive ? 'step-active' : isDone ? 'step-done' : 'step-pending'
 
           return (
             <React.Fragment key={step.id}>
               <button
-                onClick={() => isDone && goToStep(step.id)}
-                disabled={isPending || isActive}
-                title={isDone ? `Go back to ${step.label}` : undefined}
+                onClick={() => canClick && goToStep(step.id)}
+                disabled={!canClick}
+                title={canClick ? `Go to ${step.label}` : undefined}
                 className={`
                   px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all
                   ${state}
-                  ${isDone ? 'cursor-pointer hover:brightness-125' : 'cursor-default'}
+                  ${canClick ? 'cursor-pointer hover:brightness-125' : 'cursor-default'}
                 `}
               >
                 {isDone && <span className="mr-1.5 text-geo-green">✓</span>}

@@ -298,6 +298,45 @@ export default function Sidebar() {
               </div>
             )}
 
+            {trajectory.trajectory?.length > 0 && (
+              <div className="bg-geo-dark rounded-lg border border-geo-border overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-geo-border">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                    Survey Stations
+                  </p>
+                  <span className="text-xs text-slate-600">{trajectory.trajectory.length} pts</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-geo-border">
+                        <th className="px-2 py-1.5 text-left text-slate-500 font-medium">#</th>
+                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">MD (m)</th>
+                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Inc °</th>
+                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Az °</th>
+                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">TVD (m)</th>
+                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">N (m)</th>
+                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">E (m)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trajectory.trajectory.map((pt, i) => (
+                        <tr key={i} className={`border-b border-geo-border/40 ${i % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]'}`}>
+                          <td className="px-2 py-1 text-slate-600">{i + 1}</td>
+                          <td className="px-2 py-1 text-right text-slate-300">{pt.depth?.toFixed(0)}</td>
+                          <td className="px-2 py-1 text-right text-geo-accent">{pt.inclination?.toFixed(1)}</td>
+                          <td className="px-2 py-1 text-right text-slate-400">{pt.azimuth?.toFixed(1)}</td>
+                          <td className="px-2 py-1 text-right text-slate-300">{pt.z?.toFixed(1)}</td>
+                          <td className="px-2 py-1 text-right text-geo-green">{pt.y?.toFixed(1)}</td>
+                          <td className="px-2 py-1 text-right text-geo-yellow">{pt.x?.toFixed(1)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={reset}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-slate-700/50 border border-geo-border text-slate-300 font-semibold text-sm hover:bg-slate-700 transition-all"

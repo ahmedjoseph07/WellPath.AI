@@ -431,17 +431,12 @@ Trains a gradient boosting classifier on heuristically labeled well log data and
 #### Module-level Logic
 
 ```python
-try:
-    from xgboost import XGBClassifier
-    _USE_XGBOOST = True
-except Exception:
-    from sklearn.ensemble import HistGradientBoostingClassifier
-    _USE_XGBOOST = False
+from xgboost import XGBClassifier
 
 LABEL_MAP = {1: "productive", 2: "marginal", 0: "non-productive"}
 ```
 
-The import-time fallback ensures the backend starts correctly on macOS without `libomp`. `HistGradientBoostingClassifier` is scikit-learn's native histogram-based gradient boosting implementation, similar in spirit to LightGBM.
+Uses real XGBoost directly — no sklearn fallback. On macOS, XGBoost 1.7.x works without `libomp`; version 2.x requires `brew install libomp`.
 
 #### Function: `_build_model`
 
@@ -449,13 +444,16 @@ The import-time fallback ensures the backend starts correctly on macOS without `
 def _build_model():
 ```
 
-Returns either `XGBClassifier` or `HistGradientBoostingClassifier` with identical hyperparameters:
+Returns an `XGBClassifier` with tuned hyperparameters:
 
 | Hyperparameter | Value |
 |---------------|-------|
-| n_estimators / max_iter | 100 |
-| max_depth | 4 |
-| learning_rate | 0.1 |
+| n_estimators | 150 |
+| max_depth | 5 |
+| learning_rate | 0.08 |
+| subsample | 0.8 |
+| colsample_bytree | 0.8 |
+| tree_method | hist |
 | random_state | 42 |
 
 #### Function: `predict_zones`
@@ -474,7 +472,7 @@ def predict_zones(well_log_dict: Dict[str, Any]) -> Dict[str, Any]:
     "productivity_score": List[float],  # P(class=1), range [0, 1]
     "zone_label": List[str],            # "productive"/"marginal"/"non-productive"
     "feature_importance": Dict[str, float],
-    "model_backend": str,               # "XGBoost" or "HistGradientBoosting (sklearn)"
+    "model_backend": "XGBoost",
 }
 ```
 

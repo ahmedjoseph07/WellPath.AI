@@ -53,7 +53,7 @@ The system is structured as a classic **3-tier architecture**:
 | Tier | Technology | Responsibility |
 |------|-----------|----------------|
 | Presentation | React 18, Three.js, @react-three/fiber, Recharts, Zustand | User interaction, visualization, state management |
-| Intelligence | FastAPI, Python, XGBoost / sklearn, DEAP | ML prediction, GA optimization, trajectory math |
+| Intelligence | FastAPI, Python, XGBoost, DEAP | ML prediction, GA optimization, trajectory math |
 | Data | pandas, NumPy, in-memory dicts | Synthetic generation, CSV parsing, data normalization |
 
 ### Technology Stack Summary
@@ -332,7 +332,7 @@ main.py
 ├── routes/upload.py     ──► utils/csv_parser.py
 ├── routes/predict.py    ──► ml/xgboost_model.py
 │                                  ├── ml/preprocessor.py
-│                                  └── (xgboost or sklearn)
+│                                  └── xgboost (XGBClassifier)
 └── routes/optimize.py   ──► optimization/genetic_algorithm.py
                                    ├── optimization/well_trajectory.py
                                    └── optimization/fitness.py
@@ -379,20 +379,15 @@ This ensures productive class wins over marginal when both conditions are met.
 | Resistivity > 8 Ω·m | Moderate resistivity | Partially hydrocarbon-bearing or tight formation. |
 | NPHI > 0.12 frac | High neutron porosity | Porous formation capable of holding significant fluid volume. |
 
-### 5.2 XGBoost / HistGradientBoosting Model
+### 5.2 XGBoost Model
 
-**Model Selection Logic:**
+WellPath.AI uses real XGBoost directly:
 
 ```python
-try:
-    from xgboost import XGBClassifier    # preferred (requires libomp on macOS)
-    _USE_XGBOOST = True
-except Exception:
-    from sklearn.ensemble import HistGradientBoostingClassifier  # fallback
-    _USE_XGBOOST = False
+from xgboost import XGBClassifier
 ```
 
-Both models belong to the same family: **gradient boosting over decision trees**. They are functionally equivalent for this problem.
+On macOS, XGBoost 1.7.x works without `libomp`; version 2.x+ requires `brew install libomp`.
 
 **XGBoost Hyperparameters:**
 
@@ -793,7 +788,7 @@ Store State Shape (useWellStore):
 │      GR, Resistivity, Density,  //  Density: 0.xx, ...}           │
 │      NeutronPorosity, Sonic     //  sum ≈ 1.0                      │
 │    }                                                                │
-│    model_backend: string        // "XGBoost" or "HistGradientBoosting (sklearn)"
+│    model_backend: "XGBoost"     // Always XGBoost
 │  } | null                                                           │
 │                                                                     │
 │  trajectory: {                                                      │
@@ -1146,12 +1141,14 @@ curl http://localhost:8000/api/synthetic | python3 -m json.tool | head -20
 
 ### Known macOS Issue: XGBoost and libomp
 
-XGBoost requires the OpenMP runtime (`libomp`). If import fails, the backend automatically falls back to `HistGradientBoostingClassifier` from scikit-learn, which provides identical gradient boosting functionality without the OpenMP dependency.
+XGBoost requires the OpenMP runtime (`libomp`). On macOS, use XGBoost 1.7.x (works without libomp) or install libomp via Homebrew for XGBoost 2.x+:
 
 ```bash
-# Fix XGBoost on macOS
+# Option A: Use XGBoost 1.7.x (no libomp needed)
+pip install 'xgboost==1.7.6'
+
+# Option B: Install libomp for XGBoost 2.x
 brew install libomp
-pip install --force-reinstall xgboost
 ```
 
 ---
