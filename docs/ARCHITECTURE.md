@@ -63,8 +63,8 @@ The system is structured as a classic **3-tier architecture**:
 - Vite 5 (build tool, dev server with proxy)
 - Three.js 0.165 via @react-three/fiber and @react-three/drei
 - Recharts 2.12 for 2D well log and productivity charts
-- Zustand 4.5 for global state management
-- Tailwind CSS 3.4 with custom geo-dark color palette
+- Zustand 4.5 for global state management (with `persist` middleware for run history)
+- Tailwind CSS 3.4 with a custom slate-tinted **light** color palette (`geo-dark` page bg `#E6ECF2`, `geo-panel` card surface `#FFFFFF`, `geo-accent` teal `#0E7490`). The 3D canvas keeps a dark inner background `#060a14` so HUD overlays float as light cards above the dark scene.
 
 **Backend:**
 - FastAPI 0.111 (ASGI web framework)
@@ -168,9 +168,11 @@ USER ACTION                  FRONTEND (React)             BACKEND (FastAPI)
                                   │                                 │
                                   │                       Best individual decode
                                   │                       _build_formation_layers()
-                                  │                           • smooth scores
+                                  │                           • edge-padded smoothing
+                                  │                           • threshold by score
                                   │                           • group by label
-                                  │                           • merge thin layers (< 30m)
+                                  │                           • merge layers < 30m,
+                                  │                             keeping dominant label
                                   │                               │
                                   ◄──────────────────  { trajectory, fitness_score,
                                   │                      productive_zone_exposure,
@@ -257,34 +259,40 @@ WellPath.AI/
 │   │
 │   └── src/                        ← Application source
 │       ├── main.jsx                ← React DOM root mount
-│       ├── App.jsx                 ← Root layout: Header, StepIndicator, Sidebar, MainPanel
+│       ├── App.jsx                 ← Root layout: branches on view (workflow vs dashboard)
 │       │
 │       ├── api/
 │       │   └── wellpath.js         ← Fetch-based API client (4 functions)
 │       │
 │       ├── store/
-│       │   └── wellStore.js        ← Zustand store: wellLog, predictions, trajectory, step
+│       │   └── wellStore.js        ← Zustand store with `persist` middleware:
+│       │                              wellLog, predictions, trajectory, activeStep,
+│       │                              view, runHistory, loading, error
 │       │
 │       ├── styles/
 │       │   └── index.css           ← Tailwind directives + custom CSS classes
 │       │
 │       └── components/
+│           ├── Dashboard.jsx       ← Run-history view (list of past runs, stats, load/delete)
+│           │
 │           ├── layout/
-│           │   ├── Header.jsx      ← App title bar, CUET badge
-│           │   └── Sidebar.jsx     ← Step-conditional controls + GA sliders + stats
+│           │   ├── Header.jsx      ← Clickable WellPath.AI logo (goHome), Dashboard
+│           │   │                     toggle (with run-count badge), New Run button
+│           │   └── Sidebar.jsx     ← Step-conditional controls + GA sliders + stats +
+│           │                         survey-stations table + Back buttons
 │           │
 │           ├── upload/
 │           │   ├── UploadZone.jsx  ← Drag-and-drop / click CSV upload zone
 │           │   └── DataPreview.jsx ← First-10-rows tabular preview of well log
 │           │
 │           ├── charts/
-│           │   ├── WellLogChart.jsx       ← Recharts vertical GR/Res/Density/NPHI tracks
+│           │   ├── WellLogChart.jsx       ← Recharts 5-track grid (GR/Res/Den/NPHI/Sonic)
 │           │   ├── ProductivityChart.jsx  ← Vertical bar chart: productivity score by depth
 │           │   └── FeatureImportance.jsx  ← Horizontal bar chart: XGBoost importances
 │           │
 │           └── visualization/
-│               ├── Scene3D.jsx            ← React Three Fiber Canvas: full 3D scene
-│               ├── FormationLayers.jsx    ← 3D formation slab meshes (BoxGeometry)
+│               ├── Scene3D.jsx            ← React Three Fiber Canvas + light HUD overlays
+│               ├── FormationLayers.jsx    ← 3D slabs + per-layer Html label panels
 │               ├── WellTrajectory.jsx     ← 3D tube along CatmullRomCurve3
 │               ├── VerticalWell.jsx       ← Reference vertical well cylinder
 │               └── CameraControls.jsx     ← OrbitControls wrapper (damping, limits)
@@ -389,15 +397,23 @@ from xgboost import XGBClassifier
 
 On macOS, XGBoost 1.7.x works without `libomp`; version 2.x+ requires `brew install libomp`.
 
-**XGBoost Hyperparameters:**
+**XGBoost Hyperparameters (from `_build_model` in `ml/xgboost_model.py`):**
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| `n_estimators` | 100 | Sufficient boosting rounds for 200 training samples; avoids overfitting |
-| `max_depth` | 4 | Shallow trees reduce variance; well log features have clear threshold-based relationships |
-| `learning_rate` | 0.1 | Conservative shrinkage; each tree contributes 10% of its estimate |
-| `eval_metric` | mlogloss | Multi-class log loss; appropriate for 3-class softmax output |
+| `n_estimators` | 150 | Sufficient boosting rounds for 200 training samples; avoids overfitting |
+| `max_depth` | 5 | Shallow trees reduce variance; well log features have clear threshold-based relationships |
+| `learning_rate` | 0.08 | Conservative shrinkage; each tree contributes 8% of its estimate |
+| `subsample` | 0.8 | Row sub-sampling — stochastic boosting for regularisation |
+| `colsample_bytree` | 0.8 | Feature sub-sampling per tree — reduces variance |
+| `min_child_weight` | 3 | Minimum Hessian sum per leaf — avoids overly specific splits |
+| `gamma` | 0.1 | Minimum loss reduction for a split — pruning term |
+| `reg_alpha` | 0.1 | L1 regularisation on leaf weights |
+| `reg_lambda` | 1.0 | L2 regularisation on leaf weights |
+| `tree_method` | `hist` | Histogram-based split finding — fast, memory-efficient |
+| `eval_metric` | `mlogloss` | Multi-class log loss; appropriate for 3-class softmax output |
 | `random_state` | 42 | Reproducible initialization |
+| `nthread` | 1 | Single-thread — avoids libomp/OpenMP issues on macOS |
 
 **Gradient Boosting Tree Ensemble (ASCII):**
 
@@ -413,12 +429,12 @@ prod   marginal               marginal   non-prod
 
 F_1(x) = α·T1(x)              F_2(x) = F_1(x) + α·T2(x)
                                     ...
-                               F_100(x) = Σ α·Tᵢ(x)
-                                         i=1..100
+                               F_150(x) = Σ α·Tᵢ(x)
+                                         i=1..150
 
-α = learning_rate = 0.1
+α = learning_rate = 0.08
 
-Final prediction: softmax(F_100(x)) → P(class=0), P(class=1), P(class=2)
+Final prediction: softmax(F_150(x)) → P(class=0), P(class=1), P(class=2)
 productivity_score = P(class=1) = P("productive")
 ```
 
@@ -663,22 +679,46 @@ Camera:
   fov: 50°, near: 1, far: 20000
   OrbitControls: minDistance=50, maxDistance=8000
 
-Formation Layer Colors:
-  avg_score > 0.6 OR label === 'productive' → #10b981 (green),  opacity 0.65
-  avg_score > 0.35 OR label === 'marginal'  → #f59e0b (amber),  opacity 0.50
-  otherwise (non-productive)                → #ef4444 (red),    opacity 0.35
+Formation Layer Colors (rendered on the dark 3D canvas):
+  label === 'productive'      → #22C55E (green),  opacity 0.55
+  label === 'marginal'        → #F59E0B (amber),  opacity 0.45
+  label === 'non-productive'  → #EF4444 (red),    opacity 0.30
+
+Each slab also renders thin top/bottom edge slabs (thickness 1.5m, opacity
+0.6 / 0.3) and an Html label panel (right of the slab) showing the depth
+range, thickness bucket, and average score.
+
+The 2D HUD legend / chart palette uses the deeper light-theme zone variants
+(#15803D / #B45309 / #B91C1C). Both palettes encode the same zone semantics —
+brighter on the dark canvas, deeper on the light page surfaces.
 ```
 
 ### React Component Tree
 
 ```
-App.jsx
+App.jsx (branches on view)
 ├── Header.jsx
-│     CUET Thesis badge, WellPath.AI logotype
+│     Clickable WellPath.AI logo (goHome → setView('workflow') + reset())
+│     Dashboard toggle button with run-count badge
+│     "+ New Run" button (workflow only)
 │
+└── view === 'dashboard'
+    └── Dashboard.jsx
+          Stats row: Total Runs, Best Fitness, Avg Zone Exposure, Avg Productive %
+          Run cards (each entry in runHistory, most-recent first):
+            • timestamp + dominant ZoneBadge + model backend pill
+            • Depth Range / Samples / Productive % / Fitness / Exposure / Max DLS
+            • Load Run + Delete actions
+          Empty state: "No runs yet" → Start First Run button
+
+OR
+
+view === 'workflow':
 ├── StepIndicator  (inline in App.jsx)
 │     Steps 1–4 with ✓ checkmarks for completed steps
-│     Reads: activeStep from useWellStore()
+│     CLICK-TO-JUMP via goToStep() — pill is reachable when its
+│     prerequisite store data exists (wellLog/predictions/trajectory)
+│     Reads: activeStep, wellLog, predictions, trajectory
 │
 ├── ErrorBanner  (inline in App.jsx)
 │     Dismissible error display
@@ -686,38 +726,43 @@ App.jsx
 │
 ├── Sidebar.jsx
 │     Step 1: "Load Synthetic Data" button + UploadZone.jsx
-│     Step 2: Well log summary stats + "Run XGBoost" button
-│     Step 3: Prediction counts + GA config sliders + "Run GA" button
-│     Step 4: Optimization results stats + "Start Over" button
+│     Step 2: Back button + Well log summary stats + "Run XGBoost" button
+│     Step 3: Back button + Prediction counts + GA config sliders + "Run GA" button
+│     Step 4: Back button + Optimization stats + GA convergence bar
+│             + Survey Stations table (#, MD, Inc, Az, TVD, N, E)
+│             + "Start New Run" button
 │     └── UploadZone.jsx  (drag-and-drop CSV, shown in Step 1 only)
 │
 └── MainPanel  (inline in App.jsx)
     ├── [Step 1] Landing screen with data column icons
     │
     ├── [Step 2] DataPreview.jsx
-    │             First 10 rows tabular preview
+    │             First 10 rows tabular preview (light theme rows)
     │             Columns: Depth, GR, Res, Density, NP, Sonic
     │           + WellLogChart.jsx
     │             Recharts ComposedChart (layout="vertical", reversed Y)
-    │             • GR track (cyan, #06b6d4)
-    │             • Resistivity track (orange, #fb923c)
-    │             • Density track (purple, #c084fc)
-    │             • Neutron Porosity track (green, #4ade80)
+    │             3-col row (GR / Res / Density) + 2-col row (NPHI / Sonic)
+    │             • GR (#0E7490 teal) · Resistivity (#B45309 amber)
+    │             • Density (#7C3AED violet) · NPHI (#15803D green)
+    │             • Sonic (#B91C1C red)
     │             Downsampling: every 4th point (DOWNSAMPLE=4)
     │
-    ├── [Step 3] ProductivityChart.jsx
+    ├── [Step 3] WellLogChart.jsx (re-rendered for log–zone correlation)
+    │           + ProductivityChart.jsx
     │             Vertical bar chart: productivity_score vs depth
     │             Color-coded by zone_label (green/amber/red)
     │             Reference lines at 0.5 and 0.35 thresholds
     │             Downsampling: every 3rd point (DOWNSAMPLE=3)
-    │           + FeatureImportance.jsx
+    │           + FeatureImportance.jsx (rendered inside ProductivityChart)
     │             Horizontal bar chart, sorted descending
-    │             Opacity gradient by rank (0.4–1.0 of geo-accent color)
+    │             Opacity gradient by rank (0.4–1.0 of #0E7490)
     │
     └── [Step 4] Scene3D.jsx
                   React Three Fiber <Canvas>
                   camera: position [400, -(maxDepth*0.3), 600]
-                  background: #0a0e1a (geo-dark)
+                  inner background: #060a14 (dark for inspector legibility)
+                  HUD overlays: light bg-geo-panel/95 cards (Legend,
+                  SceneStats, ConvergenceChart, ControlsPanel, ModeBar)
                   │
                   ├── SceneLights (inline)
                   │     ambientLight intensity=0.4
@@ -733,8 +778,9 @@ App.jsx
                   │
                   ├── FormationLayers.jsx
                   │     Reads: trajectory.formation_layers[]
-                  │     One BoxGeometry mesh per layer
-                  │     Phong material, transparent, color by score
+                  │     One BoxGeometry mesh per layer (#22C55E / #F59E0B / #EF4444)
+                  │     Top/bottom edge outline meshes
+                  │     Per-layer Html label panel: depth range, thickness, score
                   │
                   ├── VerticalWell.jsx
                   │     Props: depthTop=0, depthBottom=maxDepth
@@ -750,7 +796,7 @@ App.jsx
                   │     THREE.Vector3[]: (x, -z, y)
                   │     CatmullRomCurve3 (catmullrom, tension=0.5)
                   │     TubeGeometry (radius=3, segments=128, radialSegs=12)
-                  │     meshPhongMaterial: cyan (#06b6d4), emissive glow
+                  │     meshPhongMaterial: teal (#0E7490), emissive glow
                   │     Tip sphere: radius=7, high emissiveIntensity
                   │     Origin sphere: radius=5, white
                   │
@@ -765,7 +811,7 @@ App.jsx
 
 ## 9. State Management (Zustand Store)
 
-Zustand is a minimal, hook-based state management library. The entire application state lives in a single store defined in `wellStore.js`.
+Zustand is a minimal, hook-based state management library. The entire application state lives in a single store defined in `wellStore.js`. The store is wrapped with Zustand's `persist` middleware so the run-history list survives page reloads (key: `wellpath-store`, `partialize` only persists `runHistory`).
 
 ```
 Store State Shape (useWellStore):
@@ -813,6 +859,15 @@ Store State Shape (useWellStore):
 │  } | null                                                           │
 │                                                                     │
 │  activeStep: 1 | 2 | 3 | 4     // Current workflow step           │
+│  view: 'workflow' | 'dashboard' // Top-level view                  │
+│  runHistory: [{                 // Persisted to localStorage        │
+│    id, timestamp,                                                   │
+│    depthMin, depthMax, samples,                                     │
+│    productivePct,                                                   │
+│    fitnessScore, productiveExposure, maxDLS,                        │
+│    modelBackend,                                                    │
+│    predictions, trajectory       // full snapshot for re-load      │
+│  }]                                                                 │
 │  loading: {                                                         │
 │    upload: boolean,             // CSV upload / synthetic fetch     │
 │    predict: boolean,            // XGBoost prediction running       │
@@ -830,10 +885,17 @@ State Transition Diagram:
            (clears trajectory)
 
   Step 3 ──[setTrajectory(data)]───────────────► Step 4
+           (also: appends a summary entry to runHistory)
+
+  Any    ──[goBack()]──────────────────────────► activeStep − 1 (≥1)
+  Any    ──[goToStep(n)]───────────────────────► jump if data exists
 
   Any    ──[reset()]───────────────────────────► Step 1
-           (nulls wellLog, predictions, trajectory)
+           (nulls wellLog, predictions, trajectory; runHistory preserved)
 
+  Any    ──[setView('dashboard'|'workflow')]───► toggles view
+  Any    ──[loadFromHistory(entry)]────────────► restores entry, view='workflow', step=4
+  Any    ──[deleteHistoryEntry(id)] / clearHistory()
   Any    ──[setError(msg)]─────────────────────► error banner shown
   Any    ──[setError(null)]────────────────────► error banner hidden
   Any    ──[setLoading(key, bool)]─────────────► spinner shown/hidden
@@ -879,7 +941,7 @@ Post-noise physical clipping:
   Sonic       : [40.0, 120.0]  μs/ft
 ```
 
-Each call uses `numpy.random.default_rng(seed=None)` — a new random seed — so each synthetic data load produces a different stratigraphy, exercising the full user workflow each time.
+The generator uses a **deterministic seed** (`_FIXED_SEED = 2007007`, Joseph Ahmed's student ID) so each synthetic data load returns the identical well log. This guarantees reproducible predictions and trajectories for the demo dataset. Upload a real CSV to exercise the pipeline on different data.
 
 ---
 
@@ -1153,5 +1215,5 @@ brew install libomp
 
 ---
 
-*End of Architecture Document — WellPath.AI v1.0*
-*Generated: April 2026 | CUET Thesis 2025*
+*End of Architecture Document — WellPath.AI v1.1*
+*Updated: April 2026 | CUET Thesis 2025*

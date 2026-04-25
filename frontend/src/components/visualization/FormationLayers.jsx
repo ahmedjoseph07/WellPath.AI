@@ -2,9 +2,9 @@ import { Html } from '@react-three/drei'
 import useWellStore from '../../store/wellStore'
 
 const ZONE_CONFIG = {
-  productive:       { color: '#10b981', opacity: 0.55, emissive: '#064e3b' },
-  marginal:         { color: '#f59e0b', opacity: 0.45, emissive: '#451a03' },
-  'non-productive': { color: '#ef4444', opacity: 0.30, emissive: '#450a0a' },
+  productive:       { color: '#22C55E', opacity: 0.55, emissive: '#064e3b' },
+  marginal:         { color: '#F59E0B', opacity: 0.45, emissive: '#451a03' },
+  'non-productive': { color: '#EF4444', opacity: 0.30, emissive: '#450a0a' },
 }
 
 function FormationLayer({ layer, showLabels }) {

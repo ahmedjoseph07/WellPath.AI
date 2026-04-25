@@ -276,24 +276,24 @@ function SurfaceRig() {
 // ─── Overlay: Legend ─────────────────────────────────────────────────────────
 function Legend() {
   const items = [
-    { color: '#10b981', label: 'Productive Zone',  shape: 'square' },
-    { color: '#f59e0b', label: 'Marginal Zone',    shape: 'square' },
-    { color: '#ef4444', label: 'Non-Productive',   shape: 'square' },
-    { color: '#06b6d4', label: 'Optimized Path',   shape: 'line'   },
-    { color: '#f59e0b', label: 'Kick-off Point',   shape: 'circle' },
-    { color: '#94a3b8', label: 'Vertical Reference', shape: 'line' },
-    { color: '#38bdf8', label: 'Ground Level',     shape: 'line'   },
+    { color: '#15803D', label: 'Productive Zone',  shape: 'square' },
+    { color: '#B45309', label: 'Marginal Zone',    shape: 'square' },
+    { color: '#B91C1C', label: 'Non-Productive',   shape: 'square' },
+    { color: '#0E7490', label: 'Optimized Path',   shape: 'line'   },
+    { color: '#B45309', label: 'Kick-off Point',   shape: 'circle' },
+    { color: '#94A3B8', label: 'Vertical Reference', shape: 'line' },
+    { color: '#38BDF8', label: 'Ground Level',     shape: 'line'   },
   ]
   return (
-    <div className="absolute bottom-20 left-4 bg-geo-panel/92 border border-geo-border rounded-xl p-3 backdrop-blur-sm">
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Legend</p>
+    <div className="absolute bottom-20 left-4 bg-geo-panel/95 border border-geo-border rounded-xl p-3 backdrop-blur-sm shadow-lg">
+      <p className="text-xs font-semibold text-geo-muted uppercase tracking-wider mb-2">Legend</p>
       <div className="flex flex-col gap-1.5">
         {items.map(({ color, label, shape }) => (
           <div key={label} className="flex items-center gap-2">
             {shape === 'square' && <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: color }} />}
             {shape === 'circle' && <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />}
             {shape === 'line'   && <div className="w-4 h-0.5 flex-shrink-0 rounded-full" style={{ background: color }} />}
-            <span className="text-xs text-slate-300">{label}</span>
+            <span className="text-xs text-geo-ink">{label}</span>
           </div>
         ))}
       </div>
@@ -312,8 +312,8 @@ function SceneStats({ trajectory }) {
   const tdDepth = pts.length ? (pts[pts.length - 1].z ?? pts[pts.length - 1].depth ?? null) : null
 
   return (
-    <div className="absolute top-4 right-4 bg-geo-panel/92 border border-geo-border rounded-xl p-3 backdrop-blur-sm" style={{ minWidth: 192 }}>
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Optimization Results</p>
+    <div className="absolute top-4 right-4 bg-geo-panel/95 border border-geo-border rounded-xl p-3 backdrop-blur-sm shadow-lg" style={{ minWidth: 192 }}>
+      <p className="text-xs font-semibold text-geo-muted uppercase tracking-wider mb-2">Optimization Results</p>
       <div className="flex flex-col gap-1.5">
         {[
           ['Fitness Score',      trajectory.fitness_score?.toFixed(4)       ?? 'N/A', 'text-geo-accent'],
@@ -321,13 +321,13 @@ function SceneStats({ trajectory }) {
                                   ? `${(trajectory.productive_zone_exposure * 100).toFixed(1)}%` : 'N/A', 'text-geo-green'],
           ['Max DLS',            trajectory.max_dogleg_severity != null
                                   ? `${trajectory.max_dogleg_severity.toFixed(2)} °/30m` : 'N/A', 'text-geo-yellow'],
-          ['Max Inclination',    maxInc    != null ? `${maxInc.toFixed(1)}°`     : 'N/A', 'text-slate-200'],
-          ['Lateral Departure',  departure != null ? `${departure.toFixed(0)} m` : 'N/A', 'text-slate-200'],
-          ['Total Depth (TD)',   tdDepth   != null ? `${tdDepth.toFixed(0)} m`   : 'N/A', 'text-slate-200'],
-          ['Survey Stations',    pts.length || 'N/A',                                      'text-slate-200'],
+          ['Max Inclination',    maxInc    != null ? `${maxInc.toFixed(1)}°`     : 'N/A', 'text-geo-ink'],
+          ['Lateral Departure',  departure != null ? `${departure.toFixed(0)} m` : 'N/A', 'text-geo-ink'],
+          ['Total Depth (TD)',   tdDepth   != null ? `${tdDepth.toFixed(0)} m`   : 'N/A', 'text-geo-ink'],
+          ['Survey Stations',    pts.length || 'N/A',                                      'text-geo-ink'],
         ].map(([label, value, cls]) => (
           <div key={label} className="flex justify-between gap-4">
-            <span className="text-xs text-slate-500">{label}</span>
+            <span className="text-xs text-geo-faint">{label}</span>
             <span className={`text-xs font-bold ${cls}`}>{value}</span>
           </div>
         ))}
@@ -352,26 +352,26 @@ function ConvergenceChart({ history }) {
     ? `+${(((max - history[0]) / (Math.abs(history[0]) || 1)) * 100).toFixed(1)}%`
     : 'flat'
   return (
-    <div className="absolute bottom-20 right-4 bg-geo-panel/92 border border-geo-border rounded-xl p-3 backdrop-blur-sm">
+    <div className="absolute bottom-20 right-4 bg-geo-panel/95 border border-geo-border rounded-xl p-3 backdrop-blur-sm shadow-lg">
       <div className="flex justify-between items-center mb-2">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">GA Convergence</p>
+        <p className="text-xs font-semibold text-geo-muted uppercase tracking-wider">GA Convergence</p>
         <span className="text-xs font-bold text-geo-green">{gain}</span>
       </div>
       <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
         <defs>
           <linearGradient id="sg2" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.02" />
+            <stop offset="0%" stopColor="#0E7490" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#0E7490" stopOpacity="0.02" />
           </linearGradient>
         </defs>
         <polygon points={`0,${H} ${poly} ${W},${H}`} fill="url(#sg2)" />
-        <polyline points={poly} fill="none" stroke="#06b6d4" strokeWidth="1.5" strokeLinejoin="round" />
-        <circle cx="0"  cy={H - ((history[0] - min) / range) * (H - 4) - 2} r="2.5" fill="#94a3b8" />
-        <circle cx={W}  cy={lastY} r="3.5" fill="#10b981" />
+        <polyline points={poly} fill="none" stroke="#0E7490" strokeWidth="1.5" strokeLinejoin="round" />
+        <circle cx="0"  cy={H - ((history[0] - min) / range) * (H - 4) - 2} r="2.5" fill="#94A3B8" />
+        <circle cx={W}  cy={lastY} r="3.5" fill="#15803D" />
       </svg>
       <div className="flex justify-between mt-1.5">
-        <span className="text-xs text-slate-600">Gen 1</span>
-        <span className="text-xs text-slate-500">{history.length} gens</span>
+        <span className="text-xs text-geo-faint">Gen 1</span>
+        <span className="text-xs text-geo-muted">{history.length} gens</span>
         <span className="text-xs text-geo-green font-semibold">{history[history.length - 1]?.toFixed(4)}</span>
       </div>
     </div>
@@ -388,28 +388,28 @@ const PRESETS = [
 
 function ControlsPanel({ preset, onPreset, autoRotate, onAutoRotate, showLabels, onToggleLabels }) {
   return (
-    <div className="absolute top-4 left-4 bg-geo-panel/92 border border-geo-border rounded-xl p-3 backdrop-blur-sm select-none" style={{ minWidth: 168 }}>
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Camera View</p>
+    <div className="absolute top-4 left-4 bg-geo-panel/95 border border-geo-border rounded-xl p-3 backdrop-blur-sm select-none shadow-lg" style={{ minWidth: 168 }}>
+      <p className="text-xs font-semibold text-geo-muted uppercase tracking-wider mb-2.5">Camera View</p>
       <div className="grid grid-cols-2 gap-1 mb-3">
         {PRESETS.map(({ key, label }) => (
           <button key={key} onClick={() => onPreset(key)} className={`
             px-2 py-1.5 rounded text-xs font-semibold border transition-all
             ${preset === key
-              ? 'bg-geo-accent/20 border-geo-accent/50 text-geo-accent'
-              : 'bg-geo-dark border-geo-border text-slate-400 hover:text-slate-200 hover:border-slate-500'}
+              ? 'bg-geo-accent-soft border-geo-accent-bd text-geo-accent'
+              : 'bg-geo-soft border-geo-border text-geo-muted hover:text-geo-ink hover:border-geo-accent/40'}
           `}>{label}</button>
         ))}
       </div>
       <div className="flex flex-col gap-1.5">
-        <button onClick={() => onPreset('perspective')} className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border border-geo-border bg-geo-dark text-slate-400 hover:text-slate-200 transition-all">
+        <button onClick={() => onPreset('perspective')} className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border border-geo-border bg-geo-soft text-geo-muted hover:text-geo-ink hover:border-geo-accent/40 transition-all">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
           Reset View
         </button>
-        <button onClick={onAutoRotate} className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border transition-all ${autoRotate ? 'bg-geo-green/15 border-geo-green/40 text-geo-green' : 'bg-geo-dark border-geo-border text-slate-400 hover:text-slate-200'}`}>
+        <button onClick={onAutoRotate} className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border transition-all ${autoRotate ? 'bg-geo-green/10 border-geo-green/35 text-geo-green' : 'bg-geo-soft border-geo-border text-geo-muted hover:text-geo-ink hover:border-geo-accent/40'}`}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2" /></svg>
           {autoRotate ? 'Stop Rotate' : 'Auto-Rotate'}
         </button>
-        <button onClick={onToggleLabels} className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border transition-all ${showLabels ? 'bg-geo-accent/15 border-geo-accent/40 text-geo-accent' : 'bg-geo-dark border-geo-border text-slate-400 hover:text-slate-200'}`}>
+        <button onClick={onToggleLabels} className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-semibold border transition-all ${showLabels ? 'bg-geo-accent-soft border-geo-accent-bd text-geo-accent' : 'bg-geo-soft border-geo-border text-geo-muted hover:text-geo-ink hover:border-geo-accent/40'}`}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" /><circle cx="7" cy="7" r="1.5" fill="currentColor" /></svg>
           {showLabels ? 'Hide Labels' : 'Show Labels'}
         </button>
@@ -458,7 +458,7 @@ const MODES = [
 function ModeBar({ mode, onMode }) {
   return (
     <div
-      className="absolute bottom-4 bg-geo-panel/95 border border-geo-border rounded-xl backdrop-blur-sm select-none overflow-hidden"
+      className="absolute bottom-4 bg-geo-panel/95 border border-geo-border rounded-xl backdrop-blur-sm select-none overflow-hidden shadow-lg"
       style={{ left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}
     >
       <div className="flex items-stretch">
@@ -473,19 +473,19 @@ function ModeBar({ mode, onMode }) {
                 flex flex-col items-center gap-1 px-5 py-2.5 text-xs font-semibold transition-all border-0
                 ${i > 0 ? 'border-l border-geo-border' : ''}
                 ${active
-                  ? 'bg-geo-accent/20 text-geo-accent'
-                  : 'bg-transparent text-slate-400 hover:bg-geo-border/40 hover:text-slate-200'}
+                  ? 'bg-geo-accent-soft text-geo-accent'
+                  : 'bg-transparent text-geo-muted hover:bg-geo-soft hover:text-geo-ink'}
               `}
             >
-              <span className={active ? 'text-geo-accent' : 'text-slate-500'}>{icon}</span>
+              <span className={active ? 'text-geo-accent' : 'text-geo-faint'}>{icon}</span>
               <span>{label}</span>
             </button>
           )
         })}
       </div>
       {/* Active mode hint */}
-      <div className="border-t border-geo-border text-center py-1 px-4">
-        <span className="text-xs text-slate-600">{MODES.find(m => m.key === mode)?.hint}</span>
+      <div className="border-t border-geo-border text-center py-1 px-4 bg-geo-soft/50">
+        <span className="text-xs text-geo-faint">{MODES.find(m => m.key === mode)?.hint}</span>
       </div>
     </div>
   )
@@ -532,7 +532,7 @@ export default function Scene3D() {
         <div className="flex items-center justify-center w-full h-full min-h-96">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-2 border-geo-accent border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-slate-400">Loading 3D scene...</p>
+            <p className="text-sm text-geo-muted">Loading 3D scene...</p>
           </div>
         </div>
       }>
@@ -598,9 +598,9 @@ export default function Scene3D() {
       {/* Pre-optimization hint */}
       {!trajectory && (
         <div className="absolute pointer-events-none" style={{ bottom: 80, left: '50%', transform: 'translateX(-50%)' }}>
-          <div className="bg-geo-panel/85 border border-geo-border rounded-xl px-5 py-2.5 backdrop-blur-sm text-center whitespace-nowrap">
-            <p className="text-sm text-slate-300 font-medium">Run GA Optimization to see the optimized trajectory</p>
-            <p className="text-xs text-slate-500 mt-0.5">Ground plane · Axis labels · Formation layers · Scale bar</p>
+          <div className="bg-geo-panel/95 border border-geo-border rounded-xl px-5 py-2.5 backdrop-blur-sm text-center whitespace-nowrap shadow-lg">
+            <p className="text-sm text-geo-ink font-medium">Run GA Optimization to see the optimized trajectory</p>
+            <p className="text-xs text-geo-muted mt-0.5">Ground plane · Axis labels · Formation layers · Scale bar</p>
           </div>
         </div>
       )}

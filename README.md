@@ -8,7 +8,7 @@
 
 # WellPath.AI
 
-**AI-Assisted Directional Well Path Optimization Using Gradient Boosting Classification and Evolutionary Computation**
+**AI-Assisted Well Path Optimization Integrating Geosteering Principles and Historical Well Log Data**
 
 > BSc Thesis Project — Petroleum & Mining Engineering, CUET
 > Author: Joseph Ahmed (ID: 2007007) | Supervisor: Aqif Hosain Khan
@@ -24,7 +24,7 @@ WellPath.AI is an end-to-end decision-support system that automates directional 
   ──────────► ──────────────► ──────────────────────► ──────────────────►
    5 log curves    Classifies each     Evolves 50 candidate     Formation layers
    200 depth pts   depth as:           trajectories over        + optimized path
-   1000-2000 m     - Productive        100 generations          + survey stations
+   1000-2000 m     - Productive        80 generations           + survey stations
                    - Marginal                                   + convergence chart
                    - Non-productive    Fitness = zone exposure
                                        - DLS penalty
@@ -117,7 +117,7 @@ Or click **Load Synthetic Data** to use the built-in demo dataset (seed: 2007007
 - Feature importance ranking for model interpretability
 
 ### Trajectory Optimization
-- **Genetic Algorithm** via DEAP framework (population=50, generations=100)
+- **Genetic Algorithm** via DEAP framework (population=50, generations=80)
 - SBX crossover + polynomial bounded mutation
 - Fitness = productive zone exposure - DLS penalty (weight=0.3)
 - **Minimum Curvature Method** — industry standard survey calculation
@@ -130,12 +130,20 @@ Or click **Load Synthetic Data** to use the built-in demo dataset (seed: 2007007
 - Survey station waypoints colored by inclination
 - Kick-off Point and Total Depth markers
 - GA convergence sparkline chart
+- Light-theme HUD overlays (Legend, SceneStats, ConvergenceChart, Controls, ModeBar) layered above the dark inner canvas
+
+### UI / Theme
+- Slate-tinted **light** theme matching the thesis-defence presentation design language
+- Clickable WellPath.AI logo always returns home with a clean Step 1
+- Header dashboard toggle with run-count badge
+- Per-step Back buttons preserve the workflow data while walking backwards
 
 ### Navigation & History
-- **Step-by-step workflow** with clickable step indicator (navigate to any completed step)
+- **Step-by-step workflow** with clickable step indicator (navigate to any completed step via `goToStep`, gated by data prerequisites)
 - **Back button** on every step to return to previous stage
-- **Run history** persisted to localStorage (last 20 runs)
-- **Dashboard** with aggregate stats across all runs
+- **Run history** persisted to `localStorage` via Zustand `persist` (key: `wellpath-store`, only `runHistory` is persisted)
+- **Dashboard** with aggregate stats (total runs, best fitness, avg zone exposure, avg productive %) across all runs
+- **Load Run / Delete** actions on each saved run
 - **Survey station table** showing all trajectory point coordinates (MD, Inc, Az, TVD, N, E)
 
 ---
@@ -209,7 +217,7 @@ WellPath.AI/
 | **3D** | Three.js, @react-three/fiber, @react-three/drei | 3D visualization |
 | **Charts** | Recharts | 2D well log and productivity charts |
 | **State** | Zustand (with persist middleware) | Global state + localStorage history |
-| **Styling** | Tailwind CSS | Dark-mode utility styles |
+| **Styling** | Tailwind CSS | Slate-tinted light-theme utility palette (`geo-*` tokens) |
 
 ---
 
@@ -254,7 +262,7 @@ Package-level references: [backend/README.md](backend/README.md) | [frontend/REA
 | Max tree depth | 5 | Controls model complexity |
 | Learning rate | 0.08 | Shrinkage per tree |
 | GA population | 50 | Individuals per generation |
-| GA generations | 100 | Default iteration count |
+| GA generations | 80 | Default iteration count |
 | Waypoints | 8 | Survey stations per trajectory |
 | DLS weight | 0.3 | Dogleg severity penalty |
 | Synthetic seed | 2007007 | Deterministic demo data |
@@ -263,7 +271,7 @@ Package-level references: [backend/README.md](backend/README.md) | [frontend/REA
 
 ## Thesis Context
 
-**Title:** AI-Assisted Directional Well Path Optimization Using Gradient Boosting Classification and Evolutionary Computation
+**Title:** AI-Assisted Well Path Optimization Integrating Geosteering Principles and Historical Well Log Data
 
 **Author:** Joseph Ahmed (ID: 2007007)
 **Program:** BSc Petroleum & Mining Engineering

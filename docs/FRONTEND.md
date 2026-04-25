@@ -28,7 +28,8 @@
    - [WellTrajectory.jsx](#83-welltrajectoryjsx)
    - [VerticalWell.jsx](#84-verticalwelljsx)
    - [CameraControls.jsx](#85-cameracontrolsjsx)
-9. [Build Configuration](#9-build-configuration)
+9. [Dashboard.jsx](#9-dashboardjsx)
+10. [Build Configuration](#10-build-configuration)
 
 ---
 
@@ -47,17 +48,26 @@
 
 ### Custom Tailwind Color Palette
 
-Defined in `tailwind.config.js`:
+Defined in `tailwind.config.js`. The interface uses a **slate-tinted light theme** matching the thesis presentation design language.
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `geo-dark` | `#0a0e1a` | Main background, canvas background |
-| `geo-panel` | `#111827` | Card/sidebar/header background |
-| `geo-border` | `#1f2937` | Borders, dividers, grid lines |
-| `geo-accent` | `#06b6d4` | Primary cyan accent (buttons, GR track, trajectory) |
-| `geo-green` | `#10b981` | Productive zone, success states |
-| `geo-yellow` | `#f59e0b` | Marginal zone, GA button |
-| `geo-red` | `#ef4444` | Non-productive zone, error states |
+| `geo-dark` | `#E6ECF2` | Page background (slate-tinted) |
+| `geo-panel` | `#FFFFFF` | Card / panel surface |
+| `geo-soft` | `#F1F5F9` | Inset / zebra surface |
+| `geo-border` | `#CBD5E1` | Hairline border |
+| `geo-accent` | `#0E7490` | Primary teal (buttons, accents) |
+| `geo-accent-d` | `#0C4A6E` | Emphasised teal text |
+| `geo-accent-soft` | `#ECFEFF` | Teal callout fill |
+| `geo-accent-bd` | `#67E8F9` | Teal callout border |
+| `geo-ink` | `#0F172A` | Primary text |
+| `geo-muted` | `#475569` | Secondary text |
+| `geo-faint` | `#94A3B8` | Very muted text |
+| `geo-green` | `#15803D` | Productive zone, success states |
+| `geo-yellow` | `#B45309` | Marginal zone, GA button |
+| `geo-red` | `#B91C1C` | Non-productive zone, errors |
+
+**Note:** The 3D Three.js canvas keeps a dark inner background (`#060a14`) for inspector legibility — HUD overlays float as light cards on top.
 
 ---
 
@@ -69,19 +79,23 @@ Minimal React DOM entry point. Mounts `<App />` into `#root` via `ReactDOM.creat
 
 ### `App.jsx`
 
-Root application layout. Defines the full-screen layout with four structural children:
+Root application layout. Branches on the `view` store field — workflow vs dashboard:
 
 ```
 <div className="flex flex-col h-screen bg-geo-dark overflow-hidden">
-  <Header />           ← top bar, always visible
-  <StepIndicator />    ← horizontal step progress, always visible
-  <ErrorBanner />      ← conditional error ribbon
-  <div className="flex flex-1 overflow-hidden">
-    <Sidebar />        ← left panel, 320px wide, step-conditional content
-    <main>             ← right content area, overflow-y-auto
-      <MainPanel />    ← renders one of 4 step views
-    </main>
-  </div>
+  <Header />                        ← top bar, always visible
+  {view === 'dashboard'
+    ? <Dashboard />                 ← run history view
+    : <>                            ← workflow view
+        <StepIndicator />           ← horizontal step progress with click-to-jump
+        <ErrorBanner />             ← conditional error ribbon
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar />               ← left panel, 320px wide, step-conditional
+          <main>                    ← right content area, overflow-y-auto
+            <MainPanel />           ← renders one of 4 step views
+          </main>
+        </div>
+      </>}
 </div>
 ```
 
@@ -89,12 +103,14 @@ Root application layout. Defines the full-screen layout with four structural chi
 
 **Props:** None (reads from store)
 
-**Store Interaction:** `activeStep = useWellStore(s => s.activeStep)`
+**Store Interaction:** `{ activeStep, goToStep, wellLog, predictions, trajectory } = useWellStore()`
 
 Renders 4 step pills connected by horizontal dividers. Each pill has one of three visual states:
 - `step-pending`: grey text, grey border (step not yet reached)
-- `step-active`: cyan text, cyan border (current step)
+- `step-active`: teal text, teal border (current step)
 - `step-done`: green text + ✓ checkmark (completed step)
+
+**Click-to-jump navigation:** A step is *reachable* if its prerequisite data exists (`reachable[2] = !!wellLog`, `reachable[3] = !!predictions`, `reachable[4] = !!trajectory`). Clicking a reachable, non-active pill calls `goToStep(step.id)`. Pending steps are disabled.
 
 The dividers between steps transition from grey to green when the preceding step is complete.
 
@@ -120,7 +136,7 @@ Conditionally renders one of four views based on `activeStep`:
 |---|---|
 | 1 | Landing screen with column icon grid |
 | 2 | `<DataPreview />` + `<WellLogChart />` |
-| 3 | `<ProductivityChart />` (which internally renders `<FeatureImportance />`) |
+| 3 | `<WellLogChart />` (5 tracks, for log–zone correlation) + `<ProductivityChart />` (which internally renders `<FeatureImportance />`) |
 | 4 | `<Scene3D />` at `height: 100%` |
 
 ---
@@ -133,26 +149,33 @@ Uses Zustand's `create()` to define a single global store with state fields and 
 
 ### Store Definition
 
+The store uses Zustand's `persist` middleware so run history survives page reloads (stored in `localStorage`).
+
 ```javascript
-const useWellStore = create((set) => ({
-  // State
+const useWellStore = create(persist((set, get) => ({
+  // Workflow state
   wellLog:     null,
   predictions: null,
   trajectory:  null,
   activeStep:  1,
+  view:        'workflow',     // 'workflow' | 'dashboard'
   loading: { upload: false, predict: false, optimize: false },
   error:       null,
 
-  // Actions
-  setWellLog:     (data) => set({ wellLog: data, predictions: null,
-                                   trajectory: null, activeStep: 2, error: null }),
-  setPredictions: (data) => set({ predictions: data, trajectory: null, activeStep: 3 }),
-  setTrajectory:  (data) => set({ trajectory: data, activeStep: 4 }),
-  setLoading:     (key, val) => set((s) => ({ loading: { ...s.loading, [key]: val } })),
-  setError:       (msg) => set({ error: msg }),
-  reset:          () => set({ wellLog: null, predictions: null,
-                               trajectory: null, activeStep: 1, error: null }),
-}))
+  // Run history
+  runHistory:  [],             // [{id, timestamp, depthMin, depthMax, samples,
+                               //   productivePct, fitnessScore, productiveExposure,
+                               //   maxDLS, modelBackend, predictions, trajectory, ...}]
+
+  // Actions (workflow)
+  setWellLog, setPredictions, setTrajectory,
+  setLoading, setError,
+  reset, goBack, goToStep,
+  setView,
+
+  // Actions (history)
+  addToHistory, loadFromHistory, deleteHistoryEntry, clearHistory,
+}), { name: 'wellpath-store', partialize: (s) => ({ runHistory: s.runHistory }) }))
 ```
 
 ### State Fields
@@ -162,10 +185,10 @@ const useWellStore = create((set) => ({
 | `wellLog` | Object or null | null | Raw well log data from backend |
 | `predictions` | Object or null | null | XGBoost predictions from backend |
 | `trajectory` | Object or null | null | GA optimization results from backend |
-| `activeStep` | 1 \| 2 \| 3 \| 4 | 1 | Current UI step |
-| `loading.upload` | boolean | false | True while fetching synthetic or uploading CSV |
-| `loading.predict` | boolean | false | True while XGBoost running |
-| `loading.optimize` | boolean | false | True while GA running |
+| `activeStep` | 1–4 | 1 | Current UI step |
+| `view` | `'workflow' \| 'dashboard'` | `'workflow'` | Top-level view |
+| `runHistory` | Array | `[]` | Persisted summaries of past optimization runs |
+| `loading.{upload,predict,optimize}` | boolean | false | Async operation flags |
 | `error` | string or null | null | Last error message |
 
 ### Action Methods
@@ -174,10 +197,16 @@ const useWellStore = create((set) => ({
 |--------|-------------|
 | `setWellLog(data)` | Sets wellLog, clears predictions+trajectory, advances to Step 2, clears error |
 | `setPredictions(data)` | Sets predictions, clears trajectory, advances to Step 3 |
-| `setTrajectory(data)` | Sets trajectory, advances to Step 4 |
+| `setTrajectory(data)` | Sets trajectory, advances to Step 4, **appends a summary to `runHistory`** |
 | `setLoading(key, val)` | Updates `loading[key]` using spread merge |
 | `setError(msg)` | Sets error string (pass null to clear) |
-| `reset()` | Clears all data, returns to Step 1 |
+| `reset()` | Clears workflow data, returns to Step 1 (history preserved) |
+| `goBack()` | Decrements `activeStep` by 1 (clamped ≥ 1) |
+| `goToStep(n)` | Jumps to step `n` if its data prerequisites exist |
+| `setView(v)` | Switches between `'workflow'` and `'dashboard'` |
+| `loadFromHistory(entry)` | Restores `wellLog/predictions/trajectory` from a history entry, switches to workflow Step 4 |
+| `deleteHistoryEntry(id)` | Removes one entry from `runHistory` |
+| `clearHistory()` | Wipes all run history |
 
 ### Usage Pattern in Components
 
@@ -314,25 +343,33 @@ export async function runOptimization(predictions, config) {
 
 ### 5.1 `Header.jsx`
 
-**Purpose:** Fixed top bar with application branding and status badges.
+**Purpose:** Fixed top bar with application branding, view-toggle, and quick reset.
 
 **Props:** None
 
-**Store Interactions:** None
+**Store Interactions:** `{ view, setView, reset, runHistory } = useWellStore()`
 
 **Rendered Content:**
 
 ```
-Left side:
-  • SVG well icon (cyan stroke)
-  • "WellPath" (cyan) + ".AI" (light) logotype
+Left side (clickable logo group → goHome()):
+  • SVG well icon in teal callout chip — hover fills with geo-accent
+  • "WellPath" (geo-accent) + ".AI" (geo-ink) logotype
   • Vertical divider
-  • "AI-Assisted Well Path Optimization" subtitle
+  • "AI-Assisted Well Path Optimization — Geosteering & Well Log Data" subtitle
 
 Right side:
-  • "CUET THESIS 2025" badge (cyan outline)
+  • Dashboard toggle button (4-square icon) — switches view between
+    'workflow' and 'dashboard'. Shows a circular badge with runHistory.length
+    when there are stored runs (white text on geo-accent fill).
+  • "New Run" button — only rendered when view === 'workflow'; calls reset()
+    to wipe wellLog/predictions/trajectory and return to Step 1.
+  • Vertical divider
+  • "Joseph Ahmed" badge (teal callout)
   • "Beta" badge (green outline)
 ```
+
+**`goHome()` behaviour:** Clicking the logo runs `setView('workflow')` then `reset()` — so the user always lands on a clean Step 1 regardless of where they were (workflow Step 4 or Dashboard).
 
 ---
 
@@ -344,7 +381,7 @@ Right side:
 
 **Store Interactions:**
 - Read: `activeStep`, `wellLog`, `predictions`, `trajectory`, `loading`
-- Write: `setWellLog`, `setPredictions`, `setTrajectory`, `setLoading`, `setError`, `reset`
+- Write: `setWellLog`, `setPredictions`, `setTrajectory`, `setLoading`, `setError`, `reset`, `goBack`
 
 **Local State:**
 ```javascript
@@ -368,51 +405,59 @@ The GA configuration is local component state — it does not need to be global 
 
 #### Step 2 Content
 
-- **Well Log Summary panel** (stats grid):
+- **Header row:** "Well Log Summary" title + `<BackButton onClick={goBack} />`
+- **Well Log Summary panel** (`bg-geo-soft`):
   - Depth Range: `min(depths)` – `max(depths)` m
   - Samples: `wellLog.depths.length`
   - GR Range: min–max API
   - Resistivity: min–max Ω·m
-
-- **"Run XGBoost Prediction" button** — calls `handlePredict()`:
+  - Density (if present): min–max g/cc
+  - Sonic (if present): min–max μs/ft
+- **XGBoost description blurb** explaining the 3-class classification.
+- **"Run XGBoost Prediction" button** (green) — calls `handlePredict()`:
   1. `setLoading('predict', true)`
   2. `await runPrediction(wellLog)`
   3. `setPredictions(data)` → advances to Step 3
 
 #### Step 3 Content
 
+- **Header row:** "Prediction Summary" title + `<BackButton onClick={goBack} />`
 - **Prediction Summary panel** (zone counts):
   - Total Intervals, Productive count + %, Marginal count, Non-Productive count
-
-- **GA Configuration panel** (two sliders):
+  - Model backend label (e.g. `xgboost`) when reported by the backend.
+- **GA Configuration panel** (two sliders, accent-colored):
   - Waypoints slider: 4–12 (default 8)
   - Generations slider: 50–200, step 10 (default 100 in UI)
-  - Live numeric display above each slider (geo-accent color)
-
-- **"Run GA Optimization" button** — calls `handleOptimize()`:
+  - Live numeric display above each slider (`text-geo-accent`)
+- **"Run GA Optimization" button** (amber) — calls `handleOptimize()`:
   1. `setLoading('optimize', true)`
   2. `await runOptimization(predictions, gaConfig)`
-  3. `setTrajectory(data)` → advances to Step 4
+  3. `setTrajectory(data)` → advances to Step 4 *and* appends an entry to `runHistory`
 
 #### Step 4 Content
 
+- **Header row:** "Optimization Results" title + `<BackButton onClick={goBack} />`
 - **Optimization Results panel** (stats grid):
   - Fitness Score (4 decimal places)
   - Productive Exposure (% with 1 decimal)
   - Max DLS (°/30m with 2 decimals)
   - Trajectory Points count
-
 - **GA Convergence panel** (if `generation_history` exists):
-  - Text: "Final fitness achieved in N generations"
+  - Text: "Converged in N generations"
   - Linear progress bar: `fitness_score * 100` width %
-
-- **"Start Over" button** — calls `reset()`
+- **Survey Stations table** (if `trajectory.trajectory.length > 0`): scrollable
+  monospace table with columns `# | MD (m) | Inc ° | Az ° | TVD (m) | N (m) | E (m)`.
+  Inclination is colored teal, North coloured green, East coloured amber so the
+  3D coordinate frame stays consistent with the legend in the 3D scene.
+- **"Start New Run" button** — calls `reset()`
 
 #### Helper Sub-components
 
 **`Spinner`:** Animated CSS border-radius spinner circle used in all loading states.
 
 **`StatRow`:** Labeled key-value row with bottom border, used in all stats panels.
+
+**`BackButton`:** Left-arrow + "Back" text button calling `goBack()` (decrements `activeStep`). Rendered in the header of Steps 2–4 to allow walking the workflow backwards without losing data.
 
 ---
 
@@ -510,22 +555,26 @@ With 200 depth points and DOWNSAMPLE=4, only 50 points are plotted per track. Th
 - Y axis is `reversed={true}`: depth increases downward (petroleum convention)
 - `isAnimationActive={false}`: prevents animation lag on data change
 
-**Track Colors:**
+**Track Colors (light-theme palette):**
 
 | Track | Color | Units |
 |-------|-------|-------|
-| Gamma Ray (GR) | `#06b6d4` (geo-accent cyan) | API |
-| Resistivity | `#fb923c` (orange) | Ω·m |
-| Density | `#c084fc` (purple) | g/cc |
-| Neutron Porosity | `#4ade80` (green) | pu |
+| Gamma Ray (GR) | `#0E7490` (geo-accent teal) | API |
+| Resistivity | `#B45309` (amber) | Ω·m |
+| Density | `#7C3AED` (violet) | g/cc |
+| Neutron Porosity | `#15803D` (green) | pu |
+| Sonic | `#B91C1C` (red) | μs/ft |
+
+Grid lines render with `#CBD5E1` (geo-border), tick labels with `#475569` (geo-muted).
 
 **`TrackChart` Sub-component:**
 
-Reusable Recharts wrapper component accepting `{data, dataKey, name, color, unit, domain}` props. Renders a `ComposedChart` with one `Line` series. The `CustomTooltip` shows depth and value on hover.
+Reusable Recharts wrapper component accepting `{data, track}` (where `track = {key, name, unit, color, label}`). Renders a `ComposedChart` with one `Line` series. The `CustomTooltip` shows depth and value on hover.
 
 **Layout:**
-- Two 480px-tall track grids side by side (GR + Resistivity)
-- Two 300px-tall tracks below (Density + Neutron Porosity), conditionally rendered
+- 3-column row (height 420px): GR + Resistivity + Density
+- 2-column row (height 320px, only if Sonic / Neutron Porosity present): NeutronPorosity + Sonic
+- Track headers display the track name + unit, colored to match the line.
 
 ---
 
@@ -546,9 +595,9 @@ const DOWNSAMPLE = 3  // render every 3rd point (≈67 bars for 200 depths)
 
 ```javascript
 const ZONE_COLORS = {
-  productive:       '#10b981',  // geo-green
-  marginal:         '#f59e0b',  // geo-yellow
-  'non-productive': '#ef4444',  // geo-red
+  productive:       '#15803D',  // geo-green
+  marginal:         '#B45309',  // geo-yellow
+  'non-productive': '#B91C1C',  // geo-red
 }
 ```
 
@@ -598,9 +647,10 @@ const chartData = useMemo(() => {
 
 **Visual Design:**
 - `layout="vertical"` with `type="category"` Y axis for feature names
-- Bars colored with opacity gradient: most important bar is `rgba(6,182,212, 1.0)`, least important is `rgba(6,182,212, 0.4)`
-- `<LabelList>` renders importance as percentage on the right of each bar
+- Bars colored with opacity gradient on the geo-accent teal: most important bar is `rgba(14,116,144, 1.0)`, least important is `rgba(14,116,144, 0.4)`
+- `<LabelList>` renders importance as percentage on the right of each bar (`#475569`)
 - Chart height: 180px (compact panel below productivity chart)
+- Grid: `#CBD5E1`, axis ticks: `#475569`
 
 **Feature Labels Mapping:**
 ```javascript
@@ -664,27 +714,19 @@ Three-point lighting setup:
 
 Renders a vertical axis indicator at x=220 with horizontal tick marks at 500m intervals. Uses `BoxGeometry` for ticks and `CylinderGeometry` for the axis line, both with a dark grey `MeshBasicMaterial` that is unaffected by scene lighting.
 
-#### `Legend` (inline HTML overlay)
+#### HUD Overlays (light cards on dark canvas)
 
-Absolutely positioned in the bottom-left corner (CSS, not Three.js). Shows 5 color swatches:
-- Green: Productive Zone
-- Amber: Marginal Zone
-- Red: Non-Productive
-- Cyan: Optimized Path
-- Slate: Vertical Reference
+The 3D canvas keeps a dark inner background (`#060a14`) so the formation slabs, trajectory tube, and depth labels read with maximum contrast. The HUD overlays are absolutely-positioned `bg-geo-panel/95` cards with `shadow-lg` so they read as light, papery surfaces *floating over* the dark scene — keeping the surrounding light theme consistent.
 
-#### `SceneStats` (inline HTML overlay)
+Overlay set:
 
-Absolutely positioned top-right. Shows:
-- Fitness Score (4 decimal places)
-- Productive Exposure (% with 1 decimal)
-- Max DLS (°/30m with 2 decimals)
-
-Returns null if `trajectory` is null.
-
-#### `Controls3D` (inline HTML overlay)
-
-Top-left corner instructions: Left drag: Rotate, Right drag: Pan, Scroll: Zoom.
+| Overlay | Position | Content |
+|---------|----------|---------|
+| `Legend` | bottom-left | Five swatches: `#15803D` Productive · `#B45309` Marginal · `#B91C1C` Non-Productive · `#0E7490` Optimized Path · `#94A3B8` Vertical Reference |
+| `SceneStats` | top-right | Fitness Score (4dp), Productive Exposure (% 1dp), Max DLS (°/30m 2dp). Hidden when `trajectory` is null. |
+| `ConvergenceChart` | bottom-right | Mini sparkline of `generation_history` fitness values |
+| `ControlsPanel` | top-left | Help block listing the active control mode bindings |
+| `ModeBar` | top-center | Toggle between **Orbit** and **Pan** control modes |
 
 **`Suspense` Fallback:**
 The canvas is wrapped in `<Suspense>` with a spinner fallback for the WebGL context initialization delay.
@@ -693,34 +735,47 @@ The canvas is wrapped in `<Suspense>` with a spinner fallback for the WebGL cont
 
 ### 8.2 `FormationLayers.jsx`
 
-**Purpose:** Renders stacked 3D formation slabs (BoxGeometry) representing productive, marginal, and non-productive zones in the 3D scene.
+**Purpose:** Renders stacked 3D formation slabs (BoxGeometry) representing productive, marginal, and non-productive zones, with hovering HTML labels showing the depth window, thickness, and average XGBoost score for each zone.
 
-**Props:** None (reads from store)
+**Props:** `{ showLabels = true }`
 
 **Store Interactions:**
 - Read: `trajectory.formation_layers`
 
-**Rendering Logic:**
+**Zone Configuration:**
 
-For each layer in `formation_layers`:
 ```javascript
-const height  = depth_bottom - depth_top      // layer thickness in metres
-const centerY = -((depth_top + depth_bottom) / 2)  // Y in Three.js (negated TVD)
-
-// Color and opacity based on score/label
-if (avg_score > 0.6 || label === 'productive')  → color: '#10b981', opacity: 0.65
-if (avg_score > 0.35 || label === 'marginal')   → color: '#f59e0b', opacity: 0.50
-else                                            → color: '#ef4444', opacity: 0.35
+const ZONE_CONFIG = {
+  productive:       { color: '#22C55E', opacity: 0.55, emissive: '#064e3b' },
+  marginal:         { color: '#F59E0B', opacity: 0.45, emissive: '#451a03' },
+  'non-productive': { color: '#EF4444', opacity: 0.30, emissive: '#450a0a' },
+}
 ```
 
-**Geometry:**
-```javascript
-<boxGeometry args={[400, height, 400]} />
-```
-Each slab is 400m × layer_thickness × 400m — wide enough to be visible as a horizontal band behind the trajectory.
+The 3D canvas uses *brightened* zone variants (`#22C55E` / `#F59E0B` / `#EF4444`) for legibility against the dark scene background, while the 2D charts and HUD legend use the deeper light-theme variants (`#15803D` / `#B45309` / `#B91C1C`). Both palettes encode the same zone semantics.
 
-**Material:**
-`MeshPhongMaterial` with `transparent={true}` and varying opacity. Phong shading responds to scene lights, giving depth cues on the slab faces.
+**Rendering Logic per layer:**
+
+```javascript
+const height  = depth_bottom - depth_top      // metres
+const centerY = -((depth_top + depth_bottom) / 2)  // Three.js Y (negated TVD)
+```
+
+Each layer renders three meshes:
+
+1. **Main slab:** `boxGeometry args={[400, height, 400]}` with `MeshPhongMaterial` (transparent, layer color, soft emissive).
+2. **Top edge outline:** thin slab at `+height/2` (`opacity: 0.6`) — emphasises the boundary plane.
+3. **Bottom edge outline:** thin slab at `-height/2` (`opacity: 0.3`) — fainter, indicates the bottom plane.
+
+**HTML Label (when `showLabels === true`):**
+
+A `<Html>` overlay (`@react-three/drei`) floats at `[215, 0, 0]` (right of the slab) with `distanceFactor={500}` so it scales with camera distance. Each label shows:
+- Zone name (capitalised, in zone color)
+- Depth range `top–bottom m`
+- Thickness `Hm · {Very thick | Thick | Moderate | Thin}` (bucketed at 1000/300/100m)
+- Average score `Score: 0.XXX`
+
+The label uses a dark inner panel (`rgba(17,24,39,0.92)`) with a 3px left border in the zone color — these are the only HUD elements drawn dark, because they sit *inside* the dark 3D canvas next to the slabs and need to read against the formation colors rather than the surrounding light page.
 
 **Returns null** if `trajectory.formation_layers` is empty or undefined (before optimization runs).
 
@@ -818,7 +873,69 @@ The `enableDamping` setting requires the Three.js renderer to call `controls.upd
 
 ---
 
-## 9. Build Configuration
+## 9. `Dashboard.jsx`
+
+**Purpose:** Run-history view, rendered as an alternative to the workflow when `view === 'dashboard'`. Shows aggregate stats across all stored runs and a scrollable list of run cards that can be re-loaded into the workflow or deleted.
+
+**Props:** None
+
+**Store Interactions:**
+- Read: `runHistory`
+- Write: `loadFromHistory`, `deleteHistoryEntry`, `clearHistory`, `setView`, `reset`
+
+### Layout
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Run Dashboard                       [Clear All]  [+ New Run] │
+│ History of all optimization runs — stored locally...         │
+├──────────────────────────────────────────────────────────────┤
+│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
+│ │Total Runs│ │Best      │ │Avg Zone  │ │Avg       │          │
+│ │   N      │ │Fitness   │ │Exposure  │ │Productive│          │
+│ │          │ │ 0.XXXX   │ │  XX.X%   │ │  XX.X%   │          │
+│ └──────────┘ └──────────┘ └──────────┘ └──────────┘          │
+├──────────────────────────────────────────────────────────────┤
+│ N runs — most recent first                                   │
+│ ┌──────────────────────────────────────────────────────────┐ │
+│ │ {timestamp} [zone-badge] [model]                         │ │
+│ │ Depth Range │ Samples │ Productive% │ Fitness │ ...      │ │
+│ │                                       [Load] [Delete]    │ │
+│ └──────────────────────────────────────────────────────────┘ │
+│ …                                                            │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Stats Aggregation
+
+```javascript
+const stats = useMemo(() => ({
+  total:            runHistory.length,
+  bestFitness:      max(runHistory[*].fitnessScore),
+  avgExposure:      mean(runHistory[*].productiveExposure),
+  avgProductivePct: mean(runHistory[*].productivePct),
+}), [runHistory])
+```
+
+`StatCard` renders a label, large value, and optional sub-label. Card colors highlight the metric (`#0E7490` total, `#15803D` fitness/exposure, `#B45309` zone, `#0C4A6E` accent-d for productive).
+
+### `RunCard`
+
+Each entry in `runHistory` is rendered as a card containing:
+
+- Header row: timestamp (formatted dd MMM yyyy hh:mm), dominant `<ZoneBadge>` (productive/marginal/non-productive — derived from `predictions.zone_label`), and a model backend pill.
+- Stats grid: Depth Range, Samples, Productive %, Fitness Score, Zone Exposure, Max DLS.
+- Action column: **Load Run** (calls `loadFromHistory(entry)` → restores the snapshot and switches to workflow Step 4) and **Delete** (calls `deleteHistoryEntry(entry.id)`).
+
+`ZoneBadge` uses translucent backgrounds derived from the light-theme zone hex codes (`rgba(21,128,61,0.10)` etc) with a matching 35% border, keeping the dashboard visually consistent with the productivity chart legend.
+
+### Empty State
+
+When `runHistory.length === 0`, the dashboard displays a centered illustration (clock/circle SVG in `bg-geo-soft`), a heading "No runs yet", and a "Start First Run" button that calls `reset(); setView('workflow')`.
+
+---
+
+## 10. Build Configuration
 
 ### Vite (`vite.config.js`)
 
@@ -854,4 +971,4 @@ The bundled JS is approximately 3–5 MB (primarily Three.js + @react-three/fibe
 
 ---
 
-*End of Frontend Documentation — WellPath.AI v1.0*
+*End of Frontend Documentation — WellPath.AI v1.1*

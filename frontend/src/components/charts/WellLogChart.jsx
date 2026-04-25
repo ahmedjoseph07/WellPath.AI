@@ -8,11 +8,11 @@ import useWellStore from '../../store/wellStore'
 const DOWNSAMPLE = 4
 
 const TRACKS = [
-  { key: 'GR',              name: 'Gamma Ray',        unit: ' API',   color: '#06b6d4', label: 'GR' },
-  { key: 'Resistivity',     name: 'Resistivity',      unit: ' Ω·m',  color: '#fb923c', label: 'RES' },
-  { key: 'Density',         name: 'Density',           unit: ' g/cc', color: '#c084fc', label: 'RHOB' },
-  { key: 'NeutronPorosity', name: 'Neutron Porosity', unit: ' pu',   color: '#4ade80', label: 'NPHI' },
-  { key: 'Sonic',           name: 'Sonic',             unit: ' μs/ft',color: '#fbbf24', label: 'DT' },
+  { key: 'GR',              name: 'Gamma Ray',        unit: ' API',   color: '#0E7490', label: 'GR' },
+  { key: 'Resistivity',     name: 'Resistivity',      unit: ' Ω·m',  color: '#B45309', label: 'RES' },
+  { key: 'Density',         name: 'Density',           unit: ' g/cc', color: '#7C3AED', label: 'RHOB' },
+  { key: 'NeutronPorosity', name: 'Neutron Porosity', unit: ' pu',   color: '#15803D', label: 'NPHI' },
+  { key: 'Sonic',           name: 'Sonic',             unit: ' μs/ft',color: '#B91C1C', label: 'DT' },
 ]
 
 function CustomTooltip({ active, payload, label }) {
@@ -20,8 +20,8 @@ function CustomTooltip({ active, payload, label }) {
   const p = payload[0]
   return (
     <div className="bg-geo-panel border border-geo-border rounded-lg p-2 text-xs shadow-xl">
-      <p className="text-slate-400 mb-1">
-        Depth: <span className="text-white font-bold">{Number(label).toFixed(1)} m</span>
+      <p className="text-geo-muted mb-1">
+        Depth: <span className="text-geo-ink font-bold">{Number(label).toFixed(1)} m</span>
       </p>
       <p style={{ color: p.color }}>
         {p.name}: <span className="font-bold">{Number(p.value).toFixed(3)}</span>
@@ -38,18 +38,18 @@ function TrackChart({ data, track }) {
         style={{ color: track.color }}
       >
         {track.name}
-        <span className="ml-1 text-slate-600 normal-case font-normal">{track.unit.trim()}</span>
+        <span className="ml-1 text-geo-faint normal-case font-normal">{track.unit.trim()}</span>
       </p>
       <div className="flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" horizontal={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#CBD5E1" horizontal={false} />
             <XAxis
               type="number"
               domain={['auto', 'auto']}
-              tick={{ fill: '#94a3b8', fontSize: 9 }}
+              tick={{ fill: '#475569', fontSize: 9 }}
               tickLine={false}
-              axisLine={{ stroke: '#1f2937' }}
+              axisLine={{ stroke: '#CBD5E1' }}
               unit={track.unit}
               tickCount={4}
             />
@@ -58,9 +58,9 @@ function TrackChart({ data, track }) {
               dataKey="depth"
               reversed
               domain={['dataMin', 'dataMax']}
-              tick={{ fill: '#94a3b8', fontSize: 9 }}
+              tick={{ fill: '#475569', fontSize: 9 }}
               tickLine={false}
-              axisLine={{ stroke: '#1f2937' }}
+              axisLine={{ stroke: '#CBD5E1' }}
               width={48}
               tickFormatter={(v) => `${v.toFixed(0)}m`}
             />
@@ -104,13 +104,13 @@ export default function WellLogChart() {
   return (
     <div className="bg-geo-panel border border-geo-border rounded-xl p-4">
       <div className="flex items-center gap-2 mb-4">
-        <h3 className="text-sm font-semibold text-slate-200">Well Log Curves</h3>
-        <span className="text-xs text-slate-500">({data.length} plotted points · every {DOWNSAMPLE}th sample)</span>
+        <h3 className="text-sm font-semibold text-geo-ink">Well Log Curves</h3>
+        <span className="text-xs text-geo-faint">({data.length} plotted points · every {DOWNSAMPLE}th sample)</span>
         <div className="ml-auto flex items-center gap-3 flex-wrap">
           {availableTracks.map((t) => (
             <div key={t.key} className="flex items-center gap-1.5">
               <div className="w-3 h-0.5" style={{ background: t.color }} />
-              <span className="text-xs text-slate-400">{t.label}</span>
+              <span className="text-xs text-geo-muted">{t.label}</span>
             </div>
           ))}
         </div>

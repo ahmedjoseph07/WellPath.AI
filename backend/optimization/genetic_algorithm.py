@@ -88,9 +88,17 @@ def _build_formation_layers(
     """
     scores = np.asarray(productivity_scores, dtype=float)
 
-    # Smooth scores with a small window to reduce noise-driven label flickering
+    # Smooth scores with a small window to reduce noise-driven label flickering.
+    # Reflective padding avoids the zero-bias at start/end that erased early
+    # productive bands when using mode="same" with implicit zero padding.
     window = max(1, len(scores) // 20)
-    smooth_scores = np.convolve(scores, np.ones(window) / window, mode="same")
+    if window > 1:
+        pad = window // 2
+        padded = np.pad(scores, pad, mode="edge")
+        kernel = np.ones(window) / window
+        smooth_scores = np.convolve(padded, kernel, mode="valid")[: len(scores)]
+    else:
+        smooth_scores = scores
 
     labels = []
     for s in smooth_scores:
@@ -130,7 +138,15 @@ def _build_formation_layers(
         "avg_score": float(np.mean(layer_scores)),
     })
 
-    # Second pass: merge thin layers into neighbours
+    # Rank labels so a thin productive band carries its label into the merged
+    # layer instead of being silently relabelled as marginal/non-productive.
+    label_priority = {"productive": 2, "marginal": 1, "non-productive": 0}
+
+    def _dominant_label(a: str, b: str) -> str:
+        return a if label_priority[a] >= label_priority[b] else b
+
+    # Second pass: merge thin layers into neighbours, preserving the most
+    # informative label across the merge.
     merged = list(raw_layers)
     changed = True
     while changed:
@@ -141,16 +157,16 @@ def _build_formation_layers(
             layer = merged[i]
             thickness = layer["depth_bottom"] - layer["depth_top"]
             if thickness < min_layer_thickness and len(merged) > 1:
-                # Absorb into the previous layer (or the next if first)
                 if new_merged:
                     prev = new_merged[-1]
                     prev["depth_bottom"] = layer["depth_bottom"]
                     prev["avg_score"] = (prev["avg_score"] + layer["avg_score"]) / 2
-                    # Keep label of the thicker absorbing layer
+                    prev["label"] = _dominant_label(prev["label"], layer["label"])
                 elif i + 1 < len(merged):
                     nxt = merged[i + 1]
                     nxt["depth_top"] = layer["depth_top"]
                     nxt["avg_score"] = (nxt["avg_score"] + layer["avg_score"]) / 2
+                    nxt["label"] = _dominant_label(nxt["label"], layer["label"])
                     i += 1
                 changed = True
             else:

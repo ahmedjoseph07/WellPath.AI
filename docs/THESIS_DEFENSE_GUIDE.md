@@ -1,7 +1,7 @@
 # Thesis Defense Guide — WellPath.AI
 
 > This document is a complete preparation guide for defending:
-> **"AI-Assisted Directional Well Path Optimization Using Gradient Boosting Classification and Evolutionary Computation"**
+> **"AI-Assisted Well Path Optimization Integrating Geosteering Principles and Historical Well Log Data"**
 > BSc Petroleum Engineering, CUET — Joseph Ahmed (ID: 2007007)
 > Supervisor: Aqif Hosain Khan
 
@@ -21,7 +21,7 @@ WellPath.AI is a four-stage integrated decision-support system for directional w
 │ Upload CSV   │ XGBoost          │ Genetic Algorithm   │ 3D Three.js    │
 │ well log     │ classifies each  │ evolves 50 candidate│ scene with     │
 │              │ depth as:        │ trajectories over   │ formation      │
-│ 6 log curves │ • Productive     │ 100 generations     │ layers,        │
+│ 5 log curves │ • Productive     │ 80 generations      │ layers,        │
 │ • GR         │ • Marginal       │                     │ optimized path,│
 │ • Rt         │ • Non-productive │ Fitness =           │ depth axis,    │
 │ • RHOB       │                  │ zone exposure        │ compass        │
@@ -39,7 +39,7 @@ WellPath.AI is a four-stage integrated decision-support system for directional w
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.9, FastAPI, XGBoost 1.7, DEAP, pandas, NumPy |
-| Frontend | React 18, Three.js, Recharts, Zustand (persist), Tailwind CSS |
+| Frontend | React 18, Three.js, Recharts, Zustand (persist for run history), Tailwind CSS (slate-tinted light theme) |
 | Deployment | Uvicorn (ASGI), Vite (dev), GitHub monorepo |
 
 ---
@@ -74,7 +74,7 @@ Directional well planning is a complex, time-consuming engineering task traditio
 
 ### 3.3 Genetic Algorithm (Optimization)
 
-> "A Genetic Algorithm mimics natural evolution. We start with a population of 50 randomly generated well trajectories. Each trajectory is evaluated for fitness — how much productive rock it passes through, penalised for sharp bends. The best trajectories are selected, combined (crossover), and slightly modified (mutation) to produce the next generation. After 100 generations, the best trajectory that emerged is our answer. GAs are ideal for this problem because there is no mathematical formula that gives us the gradient of trajectory fitness with respect to the drilling angles — we need a gradient-free search."
+> "A Genetic Algorithm mimics natural evolution. We start with a population of 50 randomly generated well trajectories. Each trajectory is evaluated for fitness — how much productive rock it passes through, penalised for sharp bends. The best trajectories are selected, combined (crossover), and slightly modified (mutation) to produce the next generation. After 80 generations, the best trajectory that emerged is our answer. GAs are ideal for this problem because there is no mathematical formula that gives us the gradient of trajectory fitness with respect to the drilling angles — we need a gradient-free search."
 
 ### 3.4 Minimum Curvature Method (Geometry)
 
@@ -123,6 +123,14 @@ Directional well planning is a complex, time-consuming engineering task traditio
 
 > "The MCM assumes the borehole follows the arc of a circle between two survey stations. The ratio factor RF = (2/α) × tan(α/2) scales the displacement vectors — it equals 1 for straight sections and increases for curved ones. The displacement in each direction is computed as the average of the unit tangent vectors at both stations, scaled by the arc length and the ratio factor. This produces a smooth, conservative estimate of position. For the special case α = 0 (no curvature), L'Hôpital's rule shows RF → 1, which we handle numerically."
 
+### Q9: "How are previous optimization runs stored, and is the dashboard reproducible?"
+
+> "Every successful optimization run produces a snapshot — depth range, sample count, productive percentage, fitness score, productive-zone exposure, max DLS, plus the predictions and trajectory payloads. We append this snapshot to a `runHistory` array in the Zustand store. The store is wrapped with Zustand's `persist` middleware, which serialises only the `runHistory` array to `localStorage` under the key `wellpath-store`. The `Dashboard` view reads this list, computes aggregate stats (best fitness, average exposure, average productive %), and lets the user re-load any prior run back into the workflow at Step 4 — so reviewers can compare today's optimization against a previous one without re-running anything. Because the synthetic data uses a fixed seed (2007007), repeated runs on synthetic data produce comparable trajectories, while real CSV uploads each create their own deterministic line in the dashboard."
+
+### Q10: "Why is there a separate productive-zone construction step after the GA finishes?"
+
+> "The GA fitness function operates on the raw, per-depth productivity scores from XGBoost — every depth point contributes to mean exposure. But the 3D scene needs *layers*, not 200 individual points, otherwise the formation slabs would be unreadable. So after the GA, we run a small post-processing routine that smooths the score series with an edge-padded moving average, thresholds it into the three zone classes, groups consecutive same-label samples into raw layers, and then iteratively merges any layer thinner than 30 metres into its neighbour. The merge keeps the *dominant* label between the two — productive outranks marginal, marginal outranks non-productive — which guarantees that a thin productive band sandwiched between thick non-productive zones still appears as a green slab in the 3D scene. An earlier version used implicit zero-padded smoothing and naïve neighbour-takes-all merging, which silently erased productive bands near the well's top and bottom — that's the bug fix this routine addresses."
+
 ---
 
 ## 5. Presentation Structure (20 minutes)
@@ -137,7 +145,7 @@ Directional well planning is a complex, time-consuming engineering task traditio
 | 6 | 2 min | XGBoost — gradient boosting theory, feature importance chart |
 | 7 | 2 min | Genetic Algorithm — evolution diagram, fitness function |
 | 8 | 2 min | Minimum Curvature Method — diagram of survey stations and arc |
-| 9 | 3 min | Live demo — upload → predict → optimize → 3D view → survey station table |
+| 9 | 3 min | Live demo — upload → predict → optimize → 3D view → survey station table → Dashboard with run history |
 | 10 | 2 min | Results — fitness score, productive zone exposure, DLS, trajectory coordinates |
 | 11 | 1 min | Limitations and future work |
 | 12 | 1 min | Conclusion |
@@ -152,7 +160,7 @@ Directional well planning is a complex, time-consuming engineering task traditio
 | Number of data points | 200 | 5 m sampling interval |
 | XGBoost trees | 150 | n_estimators |
 | GA population size | 50 | individuals per generation |
-| GA generations | 100 | default |
+| GA generations | 80 | default |
 | Waypoints | 8 | survey stations per trajectory |
 | Chromosome length | 14 | 2 × (8-1) genes |
 | DLS weight | 0.3 | penalty on sharp bends |

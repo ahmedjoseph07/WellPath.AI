@@ -27,8 +27,8 @@ F_M(x) = F_0(x) + Σ  α · h_m(x)
 Where:
   F_0(x)  = initial constant prediction (log-odds for classification)
   h_m(x)  = m-th decision tree (weak learner)
-  α       = learning rate (shrinkage parameter) = 0.1 in WellPath.AI
-  M       = number of boosting rounds (n_estimators) = 100
+  α       = learning rate (shrinkage parameter) = 0.08 in WellPath.AI
+  M       = number of boosting rounds (n_estimators) = 150
 ```
 
 **Key Idea:** At each boosting round, a new tree `h_m` is fit to the **negative gradient** (pseudo-residuals) of the loss function with respect to the current model's predictions. This is gradient descent in function space:
@@ -52,23 +52,23 @@ Training Data (200 depth points × 5 features)
              │
       ┌──────▼──────┐
       │  Tree 1      │  Fit to pseudo-residuals from F_0
-      │  max_depth=4 │  → h_1(x)
+      │  max_depth=5 │  → h_1(x)
       └──────┬───────┘
-             │  F_1 = F_0 + 0.1 · h_1
+             │  F_1 = F_0 + 0.08 · h_1
       ┌──────▼──────┐
       │  Tree 2      │  Fit to pseudo-residuals from F_1
-      │  max_depth=4 │  → h_2(x)
+      │  max_depth=5 │  → h_2(x)
       └──────┬───────┘
-             │  F_2 = F_1 + 0.1 · h_2
+             │  F_2 = F_1 + 0.08 · h_2
             ...
       ┌──────▼──────┐
-      │  Tree 100    │  Fit to pseudo-residuals from F_99
-      │  max_depth=4 │  → h_100(x)
+      │  Tree 150    │  Fit to pseudo-residuals from F_149
+      │  max_depth=5 │  → h_150(x)
       └──────┬───────┘
              │
-         F_100(x) = Σ α · h_m(x)
+         F_150(x) = Σ α · h_m(x)
              │
-         softmax(F_100(x)) → P(class=0), P(class=1), P(class=2)
+         softmax(F_150(x)) → P(class=0), P(class=1), P(class=2)
              │
          productivity_score = P(class=1)   ["productive"]
 ```
@@ -91,7 +91,7 @@ x_i = [GR_i, Resistivity_i, Density_i, NeutronPorosity_i, Sonic_i]
 
 The model outputs:
 ```
-[P(non-prod), P(productive), P(marginal)] = softmax(F_100(x_i))
+[P(non-prod), P(productive), P(marginal)] = softmax(F_150(x_i))
 ```
 
 The `productivity_score` used in the fitness function is `P(class=1)`, the probability of being productive. This continuous probability (0–1) is more informative than the discrete class label for optimization purposes — the GA can reward trajectories that spend more time in high-probability productive zones, even if no single depth point exceeds the 0.5 decision threshold.
@@ -117,13 +117,15 @@ In WellPath.AI's pipeline:
 
 **Bias considerations:**
 - Heuristic labels are imperfect (they encode simplified physics). The model is trained on noisy, rule-generated labels → unavoidable label noise.
-- `max_depth=4` keeps each tree somewhat shallow → moderate bias.
-- `n_estimators=100` with `learning_rate=0.1` provides sufficient boosting rounds to reduce residual bias.
+- `max_depth=5` keeps each tree moderately shallow → controlled bias.
+- `n_estimators=150` with `learning_rate=0.08` provides sufficient boosting rounds to reduce residual bias.
 
 **Variance considerations:**
 - 200 training samples is small relative to the feature space → risk of overfitting.
-- `max_depth=4` limits tree complexity → controlled variance.
-- The shrinkage `α=0.1` forces each tree to contribute only 10% of its prediction → regularization effect.
+- `max_depth=5` plus `min_child_weight=3` and `gamma=0.1` limit tree complexity → controlled variance.
+- The shrinkage `α=0.08` forces each tree to contribute only 8% of its prediction → regularization effect.
+- `subsample=0.8` and `colsample_bytree=0.8` inject stochastic regularisation (row/column bagging).
+- `reg_alpha=0.1` (L1) and `reg_lambda=1.0` (L2) penalise large leaf weights.
 - Since train and test are the same data (inductive prediction on the training set), overfitting manifests as overconfident probability scores rather than generalization error in this closed-system application.
 
 **Practical implication:**
@@ -133,22 +135,29 @@ The model memorizes the heuristic rules it was trained on, then applies them pro
 
 | Hyperparameter | Value | Justification |
 |---------------|-------|---------------|
-| `n_estimators` | 100 | Sufficient boosting rounds for 200 samples; adding more would risk overconfidence without benefit |
-| `max_depth` | 4 | Each tree can capture up to 2⁴=16 leaf regions, sufficient for 5-feature threshold-based data; deeper trees would overfit |
-| `learning_rate` | 0.1 | Standard conservative shrinkage; smaller values require more trees but reduce variance |
-| `eval_metric` | mlogloss | Multi-class negative log-likelihood; proper scoring rule for probability calibration |
+| `n_estimators` | 150 | Sufficient boosting rounds for 200 samples with α=0.08 to reach low residual bias |
+| `max_depth` | 5 | Each tree can capture up to 2⁵=32 leaf regions, enough to model 5-feature threshold interactions without overfitting |
+| `learning_rate` | 0.08 | Conservative shrinkage; paired with 150 trees for stable convergence |
+| `subsample` | 0.8 | Stochastic gradient boosting — row bagging improves generalisation |
+| `colsample_bytree` | 0.8 | Column sub-sampling per tree — decorrelates trees, reduces variance |
+| `min_child_weight` | 3 | Require ≥3 Hessian mass per leaf — prevents tiny specialised leaves |
+| `gamma` | 0.1 | Minimum loss reduction required for a split — pruning hyperparameter |
+| `reg_alpha` | 0.1 | L1 regularisation on leaf weights — encourages sparsity |
+| `reg_lambda` | 1.0 | L2 regularisation on leaf weights — smooths predictions |
+| `tree_method` | `hist` | Histogram-based split finder — fast and memory-efficient |
+| `eval_metric` | `mlogloss` | Multi-class negative log-likelihood; proper scoring rule for probability calibration |
 | `random_state` | 42 | Reproducible initialization for consistent debugging |
 
 **Effect of learning_rate on convergence:**
 ```
-learning_rate = 0.1:   steady, reliable convergence over 100 rounds
+learning_rate = 0.08:  steady, reliable convergence over 150 rounds (WellPath.AI)
 learning_rate = 0.5:   faster convergence, risk of oscillation / overshoot
-learning_rate = 0.01:  slow convergence, would need n_estimators ≈ 1000
+learning_rate = 0.01:  slow convergence, would need n_estimators ≈ 1500
 ```
 
 ### 1.5 Feature Importance Interpretation for Petroleum Engineers
 
-XGBoost computes feature importance as the mean **gain** (improvement in the objective function) when a feature is used to split a node, averaged over all splits using that feature across all 100 trees.
+XGBoost computes feature importance as the mean **gain** (improvement in the objective function) when a feature is used to split a node, averaged over all splits using that feature across all 150 trees.
 
 **Expected importance ranking for well log data:**
 
@@ -419,7 +428,45 @@ Phase 3 (gen 50–80):  Plateau — population converged near local/global
 - Flat curve from generation 1: population never improved — possible bug or degenerate data
 - Still rising at generation 80: insufficient generations; increase via the UI slider
 
-### 2.8 Population Replacement Strategy
+### 2.8 Formation Layer Construction (Post-GA)
+
+After the GA returns the best trajectory, `_build_formation_layers()` converts the per-depth `productivity_scores` into a coarse **layer model** for the 3D scene. Each layer is a single contiguous depth window labelled `productive | marginal | non-productive` with an `avg_score`. This is what `FormationLayers.jsx` renders as the colored slabs behind the trajectory.
+
+**Algorithm:**
+
+```
+1. Smooth the score series with a moving-average kernel of window N/20
+   using EDGE-PADDED convolution (mode="edge"). The reflective padding
+   prevents the implicit zero bias at the start/end of the profile that
+   would otherwise erase early productive bands.
+
+2. Threshold each smoothed value:
+        score >= 0.50  → productive
+   0.25 ≤ score < 0.50 → marginal
+        score <  0.25  → non-productive
+
+3. First pass — group consecutive same-label samples into raw layers:
+   {depth_top, depth_bottom, label, avg_score}
+
+4. Second pass — merge layers thinner than min_layer_thickness=30 m
+   into the previous (or next) layer. The merge resolves the resulting
+   label conflict by DOMINANT-LABEL PRESERVATION:
+
+       label_priority = {productive: 2, marginal: 1, non-productive: 0}
+       merged.label = max(prev.label, layer.label, key=priority)
+
+   Repeat until no further merges occur.
+```
+
+**Why edge padding + dominant-label merging?**
+
+An earlier version used `np.convolve(scores, kernel, mode="same")`, which pads with implicit zeros at the boundaries. This dragged the smoothed value below the productive threshold for the first/last few samples — so a productive band sitting near the top of the well would be silently relabelled as marginal or non-productive in the rendered scene.
+
+Worse, when a thin productive band (say 20 m) was merged into a thick marginal slab on either side, naïve merging took the *neighbour's* label, dropping the productive layer from the formation model entirely. The dominant-label rule fixes this — a thin productive layer keeps its `productive` label even after merging into thicker neighbours, because productive outranks marginal which outranks non-productive.
+
+The combination of these two changes ensures that *every* productive zone present in the XGBoost output appears in the 3D scene as a green slab, regardless of its position in the depth window or its thickness relative to surrounding zones.
+
+### 2.9 Population Replacement Strategy
 
 WellPath.AI uses **generational replacement** (not elitism):
 
@@ -618,4 +665,4 @@ A dogleg angle of 180° (complete reversal of direction) is physically impossibl
 
 ---
 
-*End of Algorithm Documentation — WellPath.AI v1.0*
+*End of Algorithm Documentation — WellPath.AI v1.1*

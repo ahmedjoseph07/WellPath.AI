@@ -9,9 +9,9 @@ function Spinner() {
 
 function StatRow({ label, value }) {
   return (
-    <div className="flex justify-between items-center py-1.5 border-b border-geo-border/50">
-      <span className="text-xs text-slate-400">{label}</span>
-      <span className="text-xs font-semibold text-slate-200">{value}</span>
+    <div className="flex justify-between items-center py-1.5 border-b border-geo-border/60 last:border-b-0">
+      <span className="text-xs text-geo-muted">{label}</span>
+      <span className="text-xs font-semibold text-geo-ink">{value}</span>
     </div>
   )
 }
@@ -20,7 +20,7 @@ function BackButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+      className="flex items-center gap-1.5 text-xs text-geo-muted hover:text-geo-ink transition-colors"
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <path d="M19 12H5M12 5l-7 7 7 7" />
@@ -99,13 +99,13 @@ export default function Sidebar() {
         {activeStep === 1 && (
           <div className="flex flex-col gap-4">
             <div>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              <h3 className="text-xs font-semibold text-geo-muted uppercase tracking-widest mb-3">
                 Data Source
               </h3>
               <button
                 onClick={handleSynthetic}
                 disabled={loading.upload}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-geo-accent/20 border border-geo-accent/40 text-geo-accent font-semibold text-sm hover:bg-geo-accent/30 transition-all disabled:opacity-50 glow-cyan"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-geo-accent-soft border border-geo-accent text-geo-accent font-semibold text-sm hover:bg-geo-accent hover:text-white transition-all disabled:opacity-50 glow-cyan"
               >
                 {loading.upload ? <Spinner /> : (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -117,7 +117,7 @@ export default function Sidebar() {
             </div>
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-geo-border" />
-              <span className="text-xs text-slate-500">or upload CSV</span>
+              <span className="text-xs text-geo-faint">or upload CSV</span>
               <div className="flex-1 h-px bg-geo-border" />
             </div>
             <UploadZone />
@@ -128,12 +128,12 @@ export default function Sidebar() {
         {activeStep === 2 && wellLog && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+              <h3 className="text-xs font-semibold text-geo-muted uppercase tracking-widest">
                 Well Log Summary
               </h3>
               <BackButton onClick={goBack} />
             </div>
-            <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
+            <div className="bg-geo-soft rounded-lg p-3 border border-geo-border">
               <StatRow label="Depth Range" value={depthRange} />
               <StatRow label="Samples" value={wellLog.depths.length.toLocaleString()} />
               <StatRow label="GR Range" value={`${Math.min(...wellLog.GR).toFixed(1)} – ${Math.max(...wellLog.GR).toFixed(1)} API`} />
@@ -146,16 +146,16 @@ export default function Sidebar() {
               )}
             </div>
             <div>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+              <h3 className="text-xs font-semibold text-geo-muted uppercase tracking-widest mb-2">
                 XGBoost Model
               </h3>
-              <p className="text-xs text-slate-500 mb-3">
+              <p className="text-xs text-geo-faint mb-3">
                 Classifies each depth interval as productive, marginal, or non-productive using GR, resistivity, density, neutron porosity, and sonic logs.
               </p>
               <button
                 onClick={handlePredict}
                 disabled={loading.predict}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-geo-green/20 border border-geo-green/40 text-geo-green font-semibold text-sm hover:bg-geo-green/30 transition-all disabled:opacity-50 glow-green"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-geo-green/10 border border-geo-green/50 text-geo-green font-semibold text-sm hover:bg-geo-green hover:text-white transition-all disabled:opacity-50 glow-green"
               >
                 {loading.predict ? <Spinner /> : (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -173,13 +173,13 @@ export default function Sidebar() {
         {activeStep === 3 && predictions && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+              <h3 className="text-xs font-semibold text-geo-muted uppercase tracking-widest">
                 Prediction Summary
               </h3>
               <BackButton onClick={goBack} />
             </div>
 
-            <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
+            <div className="bg-geo-soft rounded-lg p-3 border border-geo-border">
               <StatRow label="Total Intervals" value={predictions.depths.length.toLocaleString()} />
               <StatRow label="Productive" value={`${productiveCount} (${productivePct}%)`} />
               <StatRow
@@ -196,13 +196,13 @@ export default function Sidebar() {
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              <h3 className="text-xs font-semibold text-geo-muted uppercase tracking-widest mb-3">
                 GA Configuration
               </h3>
-              <div className="flex flex-col gap-4 bg-geo-dark rounded-lg p-3 border border-geo-border">
+              <div className="flex flex-col gap-4 bg-geo-soft rounded-lg p-3 border border-geo-border">
                 <div>
                   <div className="flex justify-between mb-1.5">
-                    <label className="text-xs text-slate-400">Waypoints</label>
+                    <label className="text-xs text-geo-muted">Waypoints</label>
                     <span className="text-xs font-bold text-geo-accent">{gaConfig.waypoints}</span>
                   </div>
                   <input
@@ -211,13 +211,13 @@ export default function Sidebar() {
                     className="w-full h-1.5 rounded-full accent-geo-accent cursor-pointer"
                   />
                   <div className="flex justify-between mt-1">
-                    <span className="text-xs text-slate-600">4</span>
-                    <span className="text-xs text-slate-600">12</span>
+                    <span className="text-xs text-geo-faint">4</span>
+                    <span className="text-xs text-geo-faint">12</span>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between mb-1.5">
-                    <label className="text-xs text-slate-400">Generations</label>
+                    <label className="text-xs text-geo-muted">Generations</label>
                     <span className="text-xs font-bold text-geo-accent">{gaConfig.generations}</span>
                   </div>
                   <input
@@ -226,8 +226,8 @@ export default function Sidebar() {
                     className="w-full h-1.5 rounded-full accent-geo-accent cursor-pointer"
                   />
                   <div className="flex justify-between mt-1">
-                    <span className="text-xs text-slate-600">50</span>
-                    <span className="text-xs text-slate-600">200</span>
+                    <span className="text-xs text-geo-faint">50</span>
+                    <span className="text-xs text-geo-faint">200</span>
                   </div>
                 </div>
               </div>
@@ -236,8 +236,8 @@ export default function Sidebar() {
             <button
               onClick={handleOptimize}
               disabled={loading.optimize}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-geo-yellow/20 border border-geo-yellow/40 text-geo-yellow font-semibold text-sm hover:bg-geo-yellow/30 transition-all disabled:opacity-50"
-              style={{ boxShadow: '0 0 20px rgba(245,158,11,0.2)' }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-geo-yellow/10 border border-geo-yellow/50 text-geo-yellow font-semibold text-sm hover:bg-geo-yellow hover:text-white transition-all disabled:opacity-50"
+              style={{ boxShadow: '0 0 0 1px rgba(180,83,9,0.15), 0 4px 12px rgba(180,83,9,0.10)' }}
             >
               {loading.optimize ? <Spinner /> : (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -254,13 +254,13 @@ export default function Sidebar() {
         {activeStep === 4 && trajectory && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+              <h3 className="text-xs font-semibold text-geo-muted uppercase tracking-widest">
                 Optimization Results
               </h3>
               <BackButton onClick={goBack} />
             </div>
 
-            <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
+            <div className="bg-geo-soft rounded-lg p-3 border border-geo-border">
               <StatRow
                 label="Fitness Score"
                 value={trajectory.fitness_score != null ? trajectory.fitness_score.toFixed(4) : 'N/A'}
@@ -284,9 +284,9 @@ export default function Sidebar() {
             </div>
 
             {trajectory.generation_history?.length > 0 && (
-              <div className="bg-geo-dark rounded-lg p-3 border border-geo-border">
-                <p className="text-xs text-slate-400 mb-1">GA Convergence</p>
-                <p className="text-xs text-slate-500">
+              <div className="bg-geo-soft rounded-lg p-3 border border-geo-border">
+                <p className="text-xs text-geo-muted mb-1">GA Convergence</p>
+                <p className="text-xs text-geo-faint">
                   Converged in {trajectory.generation_history.length} generations
                 </p>
                 <div className="mt-2 h-1.5 rounded-full bg-geo-border overflow-hidden">
@@ -299,34 +299,34 @@ export default function Sidebar() {
             )}
 
             {trajectory.trajectory?.length > 0 && (
-              <div className="bg-geo-dark rounded-lg border border-geo-border overflow-hidden">
+              <div className="bg-geo-soft rounded-lg border border-geo-border overflow-hidden">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-geo-border">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  <p className="text-xs font-semibold text-geo-muted uppercase tracking-widest">
                     Survey Stations
                   </p>
-                  <span className="text-xs text-slate-600">{trajectory.trajectory.length} pts</span>
+                  <span className="text-xs text-geo-faint">{trajectory.trajectory.length} pts</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs font-mono">
                     <thead>
-                      <tr className="border-b border-geo-border">
-                        <th className="px-2 py-1.5 text-left text-slate-500 font-medium">#</th>
-                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">MD (m)</th>
-                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Inc °</th>
-                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">Az °</th>
-                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">TVD (m)</th>
-                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">N (m)</th>
-                        <th className="px-2 py-1.5 text-right text-slate-500 font-medium">E (m)</th>
+                      <tr className="border-b border-geo-border bg-geo-panel">
+                        <th className="px-2 py-1.5 text-left text-geo-muted font-medium">#</th>
+                        <th className="px-2 py-1.5 text-right text-geo-muted font-medium">MD (m)</th>
+                        <th className="px-2 py-1.5 text-right text-geo-muted font-medium">Inc °</th>
+                        <th className="px-2 py-1.5 text-right text-geo-muted font-medium">Az °</th>
+                        <th className="px-2 py-1.5 text-right text-geo-muted font-medium">TVD (m)</th>
+                        <th className="px-2 py-1.5 text-right text-geo-muted font-medium">N (m)</th>
+                        <th className="px-2 py-1.5 text-right text-geo-muted font-medium">E (m)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {trajectory.trajectory.map((pt, i) => (
-                        <tr key={i} className={`border-b border-geo-border/40 ${i % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]'}`}>
-                          <td className="px-2 py-1 text-slate-600">{i + 1}</td>
-                          <td className="px-2 py-1 text-right text-slate-300">{pt.depth?.toFixed(0)}</td>
+                        <tr key={i} className={`border-b border-geo-border/40 ${i % 2 === 0 ? 'bg-geo-panel' : 'bg-geo-soft'}`}>
+                          <td className="px-2 py-1 text-geo-faint">{i + 1}</td>
+                          <td className="px-2 py-1 text-right text-geo-ink">{pt.depth?.toFixed(0)}</td>
                           <td className="px-2 py-1 text-right text-geo-accent">{pt.inclination?.toFixed(1)}</td>
-                          <td className="px-2 py-1 text-right text-slate-400">{pt.azimuth?.toFixed(1)}</td>
-                          <td className="px-2 py-1 text-right text-slate-300">{pt.z?.toFixed(1)}</td>
+                          <td className="px-2 py-1 text-right text-geo-muted">{pt.azimuth?.toFixed(1)}</td>
+                          <td className="px-2 py-1 text-right text-geo-ink">{pt.z?.toFixed(1)}</td>
                           <td className="px-2 py-1 text-right text-geo-green">{pt.y?.toFixed(1)}</td>
                           <td className="px-2 py-1 text-right text-geo-yellow">{pt.x?.toFixed(1)}</td>
                         </tr>
@@ -339,7 +339,7 @@ export default function Sidebar() {
 
             <button
               onClick={reset}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-slate-700/50 border border-geo-border text-slate-300 font-semibold text-sm hover:bg-slate-700 transition-all"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-geo-soft border border-geo-border text-geo-ink font-semibold text-sm hover:bg-geo-border/40 hover:border-geo-accent/50 transition-all"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8" />

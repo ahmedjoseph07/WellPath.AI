@@ -46,7 +46,7 @@ function StepIndicator() {
                 <span className={
                   isActive  ? 'text-geo-accent'
                   : isDone  ? 'text-geo-green'
-                  : 'text-slate-500'
+                  : 'text-geo-faint'
                 }>
                   {step.label}
                 </span>
@@ -70,15 +70,15 @@ function ErrorBanner() {
 
   return (
     <div className="mx-4 mt-3 p-3 rounded-lg bg-geo-red/10 border border-geo-red/30 flex items-start gap-3 flex-shrink-0">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" className="flex-shrink-0 mt-0.5">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B91C1C" strokeWidth="2" className="flex-shrink-0 mt-0.5">
         <circle cx="12" cy="12" r="10" />
         <path d="M12 8v4M12 16h.01" />
       </svg>
       <div className="flex-1">
         <p className="text-xs font-semibold text-geo-red">Error</p>
-        <p className="text-xs text-slate-300 mt-0.5 break-all">{error}</p>
+        <p className="text-xs text-geo-ink mt-0.5 break-all">{error}</p>
       </div>
-      <button onClick={() => setError(null)} className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
+      <button onClick={() => setError(null)} className="text-geo-faint hover:text-geo-ink transition-colors flex-shrink-0">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M18 6L6 18M6 6l12 12" />
         </svg>
@@ -95,21 +95,21 @@ function MainPanel() {
       <div className="flex flex-col gap-4 p-4">
         <div className="bg-geo-panel border border-geo-border rounded-xl p-6 text-center">
           <div className="flex flex-col items-center gap-3 max-w-md mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-geo-accent/10 border border-geo-accent/20 flex items-center justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="1.5">
+            <div className="w-16 h-16 rounded-2xl bg-geo-accent-soft border border-geo-accent-bd flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0E7490" strokeWidth="1.5">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                 <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-slate-200">Load Well Log Data</h2>
-            <p className="text-sm text-slate-400 leading-relaxed">
+            <h2 className="text-lg font-semibold text-geo-ink">Load Well Log Data</h2>
+            <p className="text-sm text-geo-muted leading-relaxed">
               Use the sidebar to load synthetic data or upload your own CSV file.
               The data should contain depth, GR, resistivity, density, neutron porosity, and sonic measurements.
             </p>
             <div className="grid grid-cols-3 gap-3 w-full mt-2">
               {['GR (API)', 'Resistivity (Ω·m)', 'Density (g/cc)', 'NP (%)', 'Sonic (μs/ft)', 'Depth (m)'].map((col) => (
-                <div key={col} className="bg-geo-dark rounded-lg p-2.5 border border-geo-border text-center">
-                  <span className="text-xs text-slate-400 font-medium">{col}</span>
+                <div key={col} className="bg-geo-soft rounded-lg p-2.5 border border-geo-border text-center">
+                  <span className="text-xs text-geo-muted font-medium">{col}</span>
                 </div>
               ))}
             </div>

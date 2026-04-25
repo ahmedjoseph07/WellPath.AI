@@ -308,7 +308,58 @@ DEAP separates the EA logic from the problem definition, making it easy to swap 
 
 ---
 
-## 14. Stochasticity and Reproducibility
+## 14. Post-Processing — Formation Layers for the 3D Scene
+
+After the GA returns the best trajectory, the backend converts the per-depth productivity scores into a **layer model** that the 3D scene renders as colored slabs behind the trajectory. This is what gives the 3D view its productive (green), marginal (amber), and non-productive (red) bands.
+
+### 14.1 Pipeline
+
+```
+productivity_scores  ──►  smooth (edge-padded moving average)
+                          │
+                          ▼
+                       threshold
+                          │
+                          ├─► score ≥ 0.50  → productive
+                          ├─► 0.25 ≤ s < 0.50 → marginal
+                          └─► score <  0.25 → non-productive
+                          │
+                          ▼
+                  group consecutive same-label depths
+                       (raw_layers)
+                          │
+                          ▼
+                  iteratively merge layers thinner than
+                  min_layer_thickness = 30 m, preserving
+                  the DOMINANT label across the merge
+                          │
+                          ▼
+              formation_layers  ──► response payload
+              [{depth_top, depth_bottom, label, avg_score}, ...]
+```
+
+### 14.2 Edge-padded smoothing
+
+The moving-average kernel uses **`np.pad(scores, pad, mode="edge")`** before convolution rather than `np.convolve(..., mode="same")`. Implicit-zero padding biased the smoothed series toward zero at the start and end of the well, which silently relabelled productive bands near the surface or bottom as marginal/non-productive — they then disappeared from the 3D scene. Reflective edge padding eliminates this boundary artifact.
+
+### 14.3 Dominant-label preservation during merging
+
+When a thin layer (< 30 m) is merged into its neighbour, the merged layer takes the **highest-priority label** between the two:
+
+```
+priority = {productive: 2, marginal: 1, non-productive: 0}
+merged.label = argmax priority(prev.label, layer.label)
+```
+
+A naïve merge would overwrite a thin productive sliver with the surrounding marginal/non-productive label, removing it from the final layer model. The dominant-label rule guarantees that *every* productive band detected by XGBoost survives the merge step and appears in the 3D scene as a green slab — even when that band is sandwiched between thicker non-productive zones.
+
+### 14.4 Why this matters for the GA
+
+The GA does **not** use `formation_layers` directly — its fitness function operates on the raw per-depth `productivity_scores`. But the layer model is the user-facing artifact the supervisor sees in the 3D scene. If a productive zone is missing from the slabs, the optimizer's behaviour looks confusing ("why is the path bending here?") even when the underlying GA is doing the right thing. The layer-construction algorithm exists so the visualisation matches the optimisation target.
+
+---
+
+## 15. Stochasticity and Reproducibility
 
 **GAs are stochastic** by design — two runs with different random seeds will produce different (but usually similarly fit) solutions. This is a **feature, not a bug**:
 
